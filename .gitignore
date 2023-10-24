@@ -133,4 +133,4 @@ dist
 package-lock.json
 
 #build
-lib
+/build/
