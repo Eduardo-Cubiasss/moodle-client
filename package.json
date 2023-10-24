@@ -1,0 +1,41 @@
+{
+  "name": "moodle-web-service-client",
+  "version": "1.0.0",
+  "description": "Package to format service requests in Moodle web service format",
+  "main": "lib/index",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hector-ae21/moodle-web-service-client.git"
+  },
+  "keywords": [
+    "Moodle",
+    "typescript",
+    "web",
+    "service"
+  ],
+  "author": "Hector L. Arrechea <hectorlazaroarrechea@gmail.com> (https://github.com/hector-ae21)",
+  "license": "MIT",
+  "files": [
+    "lib"
+  ],
+  "dependencies": {
+    "axios": "^0.26.1",
+    "form-data": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/mocha": "^9.1.0",
+    "@types/node": "^17.0.21",
+    "mocha": "^9.2.1",
+    "ts-node": "^10.5.0",
+    "typescript": "^4.5.5"
+  },
+  "bugs": {
+    "url": "https://github.com/hector-ae21/moodle-web-service-client/issues"
+  },
+  "homepage": "https://github.com/hector-ae21/moodle-web-service-client#readme"
+}
