@@ -131,3 +131,6 @@ dist
 
 #packaged json
 package-lock.json
+
+#build
+lib
