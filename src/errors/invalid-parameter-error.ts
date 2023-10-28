@@ -1,3 +1,12 @@
+/**
+ * Error thrown when a parameter is invalid
+ * @param debugInfo Debug info
+ * @returns Returns an error with the debug info
+ * @example
+ * ```typescript
+ * throw new InvalidParameter("The parameter is invalid");
+ * ```
+ */
 export class InvalidParameter extends Error {
     readonly status: number;
     readonly debugInfo?: string;

@@ -5,26 +5,17 @@ import { findError } from "../errors/error-handler";
 import { URLError } from "../errors/url-error";
 
 /**
- * import core from "mdl-ws-core-ts";
- * const response = await core({
- *  URLRequest: {
+ * import {moodleClient} from "moodle-web-service-client/lib";
+ * const response = await moodleClient({
+ *  urlRequest: {
  *    rootURL: 'http://localhost/moodle',
  *    token: 'aeb315e6dd3affc18352fe46124cdd48',
- *    wSFunction: 'core_course_get_courses',
+ *    webServiceFunction: 'core_course_get_courses',
  *  },
  *  content: {
- *    courses: [
- *        {
- *            fullname: 'Example01',
- *            shortname: 'Example1',
- *            categoryid: 1
- *        },
- *        {
- *            fullname: 'Example02',
- *            shortname: 'Example2',
- *            categoryid: 1
- *          }
- *    ]
+ *   options: {
+ *    ids: [1, 2, 3],
+ *   },
  *  },
  * });
  *

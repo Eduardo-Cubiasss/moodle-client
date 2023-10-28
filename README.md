@@ -9,6 +9,10 @@ Package to format service request in Moodle web service format
 - [moodle-web-service-client](#moodle-web-service-client)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
+  - [Debug errors Information](#debug-errors-information)
+  - [Examples](#examples)
+    - [General Use](#general-use)
+    - [General Use with another methods](#general-use-with-another-methods)
   - [Docs](#docs)
   - [Issues](#issues)
     - [🐛 Bugs](#-bugs)
@@ -30,7 +34,57 @@ Installation is done using the
 [ `npm install` command](https://docs.npmjs.com/getting-started/installing-npm-packages-locally):
 
 ```console
-$ npm install mdl-ws-core-ts
+$ npm install moodle-web-service-client
+```
+
+## Debug errors Information
+To activate debug options.
+
+Go to moodle -> site administration -> developer -> debugging 
+
+In debugging messages select developer options.
+
+## Examples
+
+### General Use
+
+If you want to use the default method (POST) you can use the following example.
+
+```ts
+import {moodleClient} from "moodle-web-service-client/lib";
+ const response = await moodleClient({
+  urlRequest: {
+    rootURL: 'http://localhost/moodle',
+    token: 'aeb315e6dd3affc18352fe46124cdd48',
+    webServiceFunction: 'core_course_get_courses',
+  },
+  content: {
+   options: {
+    ids: [1, 2, 3],
+   },
+  },
+ });
+```
+
+### General Use with another methods
+
+If you want to use another methods like POST, PUT, DELETE, PATCH, etc. You can use the method property.
+
+```ts
+import {moodleClient} from "moodle-web-service-client/lib";
+ const response = await moodleClient({
+  urlRequest: {
+    rootURL: 'http://localhost/moodle',
+    token: 'aeb315e6dd3affc18352fe46124cdd48',
+    webServiceFunction: 'core_course_get_courses',
+  },
+  content: {
+   options: {
+    ids: [1, 2, 3],
+   },
+  },
+  method: 'GET',
+ });
 ```
 
 ## Docs
