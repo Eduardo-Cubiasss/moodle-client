@@ -1,4 +1,4 @@
-class URLError extends Error {
+export class URLError extends Error {
     readonly status: number;
     constructor() {
         super(...arguments);

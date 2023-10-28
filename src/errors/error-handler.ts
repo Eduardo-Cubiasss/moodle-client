@@ -1,4 +1,10 @@
 import { AxiosResponse } from "axios";
+import { InvalidParameter } from "./invalid-parameter-error";
+import { AccessException } from "./access-exception-error";
+import { InvalidToken } from "./invalid-token-error";
+import { InvalidRecord } from "./invalid-record-error";
+import { MoodleException } from "./moodle-exception-error";
+import { BadRequestError } from "./bad-request-error";
 
 export const findError = (res: AxiosResponse) => {
     if (res.data !== null && "errorcode" in res.data) {

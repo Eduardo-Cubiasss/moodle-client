@@ -1,4 +1,4 @@
-class InvalidParameter extends Error {
+export class InvalidParameter extends Error {
     readonly status: number;
     readonly debugInfo?: string;
     constructor(debugInfo?: string) {

@@ -1,4 +1,4 @@
-class MoodleException extends Error {
+export class MoodleException extends Error {
     readonly status;
     readonly debugInfo;
     constructor(status: number, message: string, debugInfo?: string) {

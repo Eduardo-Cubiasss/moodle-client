@@ -1,4 +1,4 @@
-class InvalidRecord extends Error {
+export class InvalidRecord extends Error {
     readonly status: number;
     readonly debugInfo?: string;
     constructor(debugInfo?: string) {

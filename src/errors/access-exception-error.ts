@@ -1,4 +1,4 @@
-class AccessException extends Error {
+export class AccessException extends Error {
     readonly status: number;
     readonly debugInfo?: string;
     constructor(debugInfo?: string) {
