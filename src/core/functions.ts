@@ -1,4 +1,4 @@
-import { IURLRequest } from "../types/core";
+import { IURLRequest } from "../../types/core";
 import FormData from "form-data";
 
 export const getUrl = (dataUrl: IURLRequest) => {
@@ -15,7 +15,7 @@ export const createFormattedObject = (object: object, i = 0, keyT = "", response
             Object.assign(response, { [`${aux}`]: val });
         }
     }
-    if (isFirstIteration) return response;
+    return (isFirstIteration) ? response : undefined;
 };
 
 export const formatContent = (data: object): FormData => {
