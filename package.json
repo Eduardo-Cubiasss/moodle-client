@@ -1,6 +1,6 @@
 {
   "name": "moodle-web-service-client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Package to format service requests in Moodle web service format",
   "main": "lib/index.js",
   "types": "types/index.d.ts",
