@@ -32,7 +32,6 @@ import { formatContent, getUrl } from "./functions";
 const core = async (data: IDataRequest) => {
     const url = getUrl(data.urlRequest);
     const content = formatContent(data.content);
-    console.log(content);
     
     const res = await axios({
         method: data.method || "POST",
