@@ -1,6 +1,6 @@
 import axios from "axios";
-import { formatContent, getUrl } from "./functions";
 import { IDataRequest } from "../../types/core";
+import { formatContent, getUrl } from "./functions";
 
 /**
  * import core from "mdl-ws-core-ts";

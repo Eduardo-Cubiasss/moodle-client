@@ -1,3 +1,4 @@
 import core from "./core";
 
-export default core;
+
+export const moodleClient = core;

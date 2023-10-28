@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "Package to format service requests in Moodle web service format",
   "main": "lib/index.js",
-  "types": "lib/types/index.d.ts",
+  "types": "types/index.d.ts",
   "scripts": {
     "build": "tsc -b"
-  },  
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/hector-ae21/moodle-web-service-client.git"
