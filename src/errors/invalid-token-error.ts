@@ -1,4 +1,4 @@
-export class InvalidToken extends Error {
+class InvalidToken extends Error {
     readonly status: number;
     readonly debugInfo?: string;
     constructor(debugInfo?: string) {

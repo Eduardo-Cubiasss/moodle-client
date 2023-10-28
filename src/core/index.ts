@@ -1,6 +1,7 @@
 import axios from "axios";
 import { IDataRequest } from "../../types/core";
 import { formatContent, getUrl } from "./functions";
+import { findError } from "../errors/error-handler";
 
 /**
  * import core from "mdl-ws-core-ts";
@@ -32,20 +33,15 @@ import { formatContent, getUrl } from "./functions";
 const core = async (data: IDataRequest) => {
     const url = getUrl(data.urlRequest);
     const content = formatContent(data.content);
-    
+
     const res = await axios({
         method: data.method || "POST",
         url,
         data: content,
         headers: content.getHeaders(),
     }).catch(() => {
-        return {
-            data: {
-                exception: "Error",
-                message: "Error",
-            },
-        };
+        throw new URLError();
     });
-    return (res);
+    return findError(res);
 }
 export default core;

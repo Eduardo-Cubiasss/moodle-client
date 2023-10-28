@@ -1,4 +1,4 @@
-export class BadRequestError extends Error {
+class BadRequestError extends Error {
     public readonly status: number;
     public debugInfo?: string;
     constructor(debugInfo?: string) {
