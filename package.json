@@ -1,12 +1,11 @@
 {
   "name": "moodle-web-service-client",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Package to format service requests in Moodle web service format",
-  "main": "lib/index",
-  "types": "lib/index.d.ts",
+  "main": "lib/index.js",
+  "types": "types/index.d.ts",
   "scripts": {
-    "start": "ts-node src/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc -b"
   },
   "repository": {
     "type": "git",
@@ -20,9 +19,6 @@
   ],
   "author": "Hector L. Arrechea <hectorlazaroarrechea@gmail.com> (https://github.com/hector-ae21)",
   "license": "MIT",
-  "files": [
-    "lib"
-  ],
   "dependencies": {
     "axios": "^0.26.1",
     "form-data": "^4.0.0"
