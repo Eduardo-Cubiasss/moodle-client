@@ -51,7 +51,7 @@ In debugging messages select developer options.
 If you want to use the default method (POST) you can use the following example.
 
 ```ts
-import {moodleClient} from "moodle-web-service-client/lib";
+import {moodleClient} from "moodle-web-service-client";
  const response = await moodleClient({
   urlRequest: {
     rootURL: 'http://localhost/moodle',
@@ -71,7 +71,7 @@ import {moodleClient} from "moodle-web-service-client/lib";
 If you want to use another methods like POST, PUT, DELETE, PATCH, etc. You can use the method property.
 
 ```ts
-import {moodleClient} from "moodle-web-service-client/lib";
+import {moodleClient} from "moodle-web-service-client";
  const response = await moodleClient({
   urlRequest: {
     rootURL: 'http://localhost/moodle',
