@@ -30,7 +30,7 @@
   "author": "Hector L. Arrechea <hectorlazaroarrechea@gmail.com> (https://github.com/hector-ae21)",
   "license": "MIT",
   "dependencies": {
-    "axios": "^0.26.1",
+    "axios": "^0.33.0",
     "form-data": "^4.0.0"
   },
   "devDependencies": {
