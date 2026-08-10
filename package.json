@@ -1,21 +1,31 @@
 {
-  "name": "moodle-web-service-client",
-  "version": "1.1.1",
+  "name": "@didactika/moodle-client",
+  "version": "1.1.2",
   "description": "Package to format service requests in Moodle web service format",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"no automated tests yet\""
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hector-ae21/moodle-web-service-client.git"
+    "url": "https://github.com/didactika/moodle-client.git"
   },
   "keywords": [
-    "Moodle",
+    "moodle",
     "typescript",
     "web",
-    "service"
+    "service",
+    "webservice",
+    "api-client"
   ],
   "author": "Hector L. Arrechea <hectorlazaroarrechea@gmail.com> (https://github.com/hector-ae21)",
   "license": "MIT",
@@ -31,7 +41,7 @@
     "typescript": "^4.5.5"
   },
   "bugs": {
-    "url": "https://github.com/hector-ae21/moodle-web-service-client/issues"
+    "url": "https://github.com/didactika/moodle-client/issues"
   },
-  "homepage": "https://github.com/hector-ae21/moodle-web-service-client#readme"
+  "homepage": "https://github.com/didactika/moodle-client#readme"
 }

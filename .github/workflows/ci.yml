@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ['v*.x']
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The test suite only needs to run once per change, on the pull request
+  # (or on a manual tag push via release.yml's workflow_call). A push to a
+  # vX.x branch is always a merge of a PR that already passed this same
+  # gate, so it skips straight to tagging instead of re-running everything.
+  #
+  # The ref_type check is what keeps the manual-tag path honest. A reusable
+  # workflow inherits the caller's github context, so when release.yml is
+  # triggered by a tag push and calls this workflow, github.event_name is
+  # still 'push' — testing event_name alone would skip every job here and
+  # turn that quality gate into a no-op. ref_type separates the two kinds of
+  # push: 'branch' for a merge into vX.x, 'tag' for a manual version tag.
+  test:
+    name: test
+    if: github.event_name != 'push' || github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # If your build needs a codegen step first (Prisma, GraphQL codegen,
+      # protobufs, ...), add it here, e.g.:
+      #   - run: npx prisma generate
+      - run: npm run build
+      - run: npm test
+
+  # Single required check the branch ruleset depends on. If more jobs are
+  # added (an integration matrix, lint, ...), list them all in `needs:`
+  # below so this one required check keeps covering the real gate.
+  # Same condition as the jobs it depends on, for the reason explained there.
+  verify:
+    name: verify
+    if: always() && (github.event_name != 'push' || github.ref_type == 'tag')
+    runs-on: ubuntu-latest
+    needs: [test]
+    permissions:
+      contents: read
+    steps:
+      - run: echo "All test jobs passed."
+
+  # A tag pushed with GITHUB_TOKEN does not trigger another workflow automatically.
+  # A push to a vX.x branch is always an already-tested merge (verify is skipped
+  # here on purpose, see above), so this goes straight to tagging instead of
+  # re-running the suite. Create the missing version tag, then explicitly
+  # dispatch the release workflow on that tag. Matches vN.x for any maintained
+  # major (starting at v0.x — the default branch from a package's very first
+  # commit — then v1.x, v2.x, and whichever comes next) without edits here.
+  release:
+    name: tag and start release
+    if: >-
+      always() &&
+      github.event_name == 'push' &&
+      startsWith(github.ref, 'refs/heads/v') &&
+      (needs.verify.result == 'success' || needs.verify.result == 'skipped')
+    runs-on: ubuntu-latest
+    needs: verify
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read package version
+        id: package
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether the version tag exists
+        id: tag
+        env:
+          VERSION_TAG: ${{ steps.package.outputs.tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION_TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create version tag
+        if: steps.tag.outputs.exists == 'false'
+        env:
+          VERSION_TAG: ${{ steps.package.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Use this version's own CHANGELOG.md section as the annotated tag
+          # message when there is one, same extraction release.yml uses for
+          # the GitHub Release body, so the tag itself isn't just "Release vX.Y.Z".
+          VERSION="${VERSION_TAG#v}"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md | sed -e '1{/^$/d}' > /tmp/tag-message.md
+
+          {
+            echo "Release $VERSION_TAG"
+            if [ -s /tmp/tag-message.md ]; then
+              echo
+              cat /tmp/tag-message.md
+            fi
+          } > /tmp/tag-message-final.md
+
+          git tag -a "$VERSION_TAG" -F /tmp/tag-message-final.md
+          git push origin "$VERSION_TAG"
+
+      - name: Start release workflow
+        if: steps.tag.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_TAG: ${{ steps.package.outputs.tag }}
+        run: gh workflow run release.yml --ref "$VERSION_TAG" -f dry_run=false

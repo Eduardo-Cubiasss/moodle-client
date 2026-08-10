@@ -1,0 +1,40 @@
+version: 2
+
+# This file is NOT inherited from the organization's .github repo — unlike
+# SECURITY.md/CONTRIBUTING.md/CODE_OF_CONDUCT.md, dependabot.yml only applies
+# from within the repo that owns it, which is why it has to ship in this
+# template instead.
+updates:
+  # Development-only dependencies (build tooling, test runners, type defs,
+  # linters, ...) are low risk and noisy one-by-one, so they are grouped into
+  # a single weekly PR. Production dependencies are intentionally left
+  # ungrouped: each gets its own PR so a breaking change is easy to bisect
+  # and review on its own.
+  # A group's update-types only controls what gets bundled together; it
+  # does not stop Dependabot from opening an individual PR for whatever
+  # falls outside it. ignore is what actually suppresses majors — left for
+  # a human to bump deliberately, on any dependency, production or not.
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+    groups:
+      development-dependencies:
+        dependency-type: 'development'
+
+  # No production/development split exists for this ecosystem — every
+  # action bump is CI-only tooling, so all of them are grouped together.
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+    groups:
+      github-actions:
+        patterns:
+          - '*'

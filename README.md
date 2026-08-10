@@ -1,4 +1,4 @@
-# moodle-web-service-client
+# @didactika/moodle-client
 
 Package to format service request in Moodle web service format
 
@@ -6,7 +6,7 @@ Package to format service request in Moodle web service format
 
 <!-- DON'T EDIT THIS SECTION -->
 
-- [moodle-web-service-client](#moodle-web-service-client)
+- [@didactika/moodle-client](#didactikamoodle-client)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
   - [Debug errors Information](#debug-errors-information)
@@ -34,8 +34,11 @@ Installation is done using the
 [ `npm install` command](https://docs.npmjs.com/getting-started/installing-npm-packages-locally):
 
 ```console
-$ npm install moodle-web-service-client
+$ npm install @didactika/moodle-client
 ```
+
+> Renamed from `moodle-web-service-client`. The old package is deprecated on
+> npm and points here — same code, this is where it continues.
 
 ## Debug errors Information
 To activate debug options.
@@ -51,7 +54,7 @@ In debugging messages select developer options.
 If you want to use the default method (POST) you can use the following example.
 
 ```ts
-import {moodleClient} from "moodle-web-service-client";
+import {moodleClient} from "@didactika/moodle-client";
  const response = await moodleClient({
   urlRequest: {
     rootURL: 'http://localhost/moodle',
@@ -71,7 +74,7 @@ import {moodleClient} from "moodle-web-service-client";
 If you want to use another methods like POST, PUT, DELETE, PATCH, etc. You can use the method property.
 
 ```ts
-import {moodleClient} from "moodle-web-service-client";
+import {moodleClient} from "@didactika/moodle-client";
  const response = await moodleClient({
   urlRequest: {
     rootURL: 'http://localhost/moodle',
@@ -99,14 +102,14 @@ Looking to contribute? Look for the label.
 
 Please file an issue for bugs, missing documentation, or unexpected behavior.
 
-[**See Bugs**](https://github.com/hector-ae21/moodle-web-service-client/issues)
+[**See Bugs**](https://github.com/didactika/moodle-client/issues)
 
 ### 💡 Feature Requests
 
 Please file an issue to suggest new features. Vote on feature requests by adding
 a 👍. This helps maintainers prioritize what to work on.
 
-[**See Feature Requests**](https://github.com/hector-ae21/moodle-web-service-client/issues)
+[**See Feature Requests**](https://github.com/didactika/moodle-client/issues)
 
 ## Contributors
 
