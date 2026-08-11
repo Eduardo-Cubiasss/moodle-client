@@ -1,7 +1,7 @@
 {
   "name": "@didactika/moodle-client",
-  "version": "1.1.2",
-  "description": "Package to format service requests in Moodle web service format",
+  "version": "2.0.0",
+  "description": "Typed Moodle web service client with no runtime dependencies, built on native fetch",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

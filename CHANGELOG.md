@@ -14,6 +14,81 @@ not reconstructed from memory.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-11
+
+### Removed
+
+- **axios and form-data.** The package now has no runtime dependencies at
+  all. `npm audit` reported 23 high-severity advisories against the axios
+  line this package was pinned to, and none of them had a fix available
+  inside the range it could install.
+- Deep import paths. Only `dist/` is published now, so `.../lib/errors/...`
+  and `.../types/core` — which used to be reachable by accident — are gone.
+  Everything is exported from the package root instead, see Added.
+
+### Changed
+
+- **Node 20 or newer is required**, for `fetch` and `URLSearchParams` from
+  the standard library.
+- **A call resolves to `{ data, status, statusText, ok, headers }`** instead
+  of an axios response. `response.data` is unchanged, which is the part
+  callers actually read; `headers` is a `Headers` instance now.
+- Parameters are sent as `application/x-www-form-urlencoded` rather than
+  multipart. PHP populates `$_POST` identically from either, so Moodle
+  receives exactly the same thing without the multipart framing.
+- `method` is typed as `HttpMethod` instead of axios' `Method`, and
+  `IDataRequest.content` as `object` instead of `Object`.
+- Built with tsup into `dist/`, shipping CommonJS, ESM and type
+  declarations, replacing the CommonJS-only `lib/`.
+
+### Added
+
+- `moodleClient<T>()` accepts a type argument for the response body. It
+  defaults to `any`, which is how axios typed it.
+- The seven error classes and every public type are exported from the
+  package root, so errors can be narrowed with `instanceof`.
+- A test suite: unit tests for URL building, content flattening and error
+  mapping, plus integration tests that run against a real local HTTP server
+  instead of a stubbed `fetch`.
+
+### Fixed
+
+- **`GET` and `HEAD` requests reached Moodle with no parameters at all.**
+  They were handed to axios as a request body, and PHP never reads a body
+  into `$_GET`, so every non-POST call arrived empty. Parameters now go in
+  the query string, which is what makes the documented `method: 'GET'`
+  example work.
+- A `null` anywhere in `content` threw instead of being skipped:
+  `typeof null === "object"` sent the flattener into `Object.entries(null)`.
+- The token and the function name are escaped when building the URL rather
+  than concatenated into the query string raw.
+- Trailing slashes in `rootURL` are trimmed without a backtracking regular
+  expression, which code scanning flagged as a polynomial ReDoS on caller
+  input.
+
+### Migrating from 1.x
+
+Read `response.data` exactly as before — it is unchanged. What is gone is
+the rest of the axios response object: `config`, `request` and the raw
+`headers` plain object have no equivalent, and `headers` is now a `Headers`,
+so `response.headers['content-type']` becomes
+`response.headers.get('content-type')`.
+
+Replace deep imports with named ones from the package root:
+
+```ts
+// before
+import { InvalidToken } from "moodle-web-service-client/lib/errors/invalid-token-error";
+// after
+import { InvalidToken } from "@didactika/moodle-client";
+```
+
+Error handling needs no changes: the same seven classes are thrown, with the
+same names, messages and status codes. Calls that already used
+`method: 'GET'` will start sending their parameters for the first time — if
+anything downstream depended on that call arriving empty, it will now behave
+differently, and correctly.
+
 ## [1.1.2] - 2026-08-10
 
 ### Changed
