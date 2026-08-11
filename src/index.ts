@@ -2,7 +2,13 @@ import core from "./core";
 
 export const moodleClient = core;
 
-export type { IDataRequest, IURLRequest } from "./types/core";
+export type {
+    HttpMethod,
+    IDataRequest,
+    IMoodleErrorBody,
+    IMoodleResponse,
+    IURLRequest,
+} from "./types/core";
 
 export { AccessException } from "./errors/access-exception-error";
 export { BadRequestError } from "./errors/bad-request-error";

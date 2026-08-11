@@ -1,4 +1,17 @@
-import { Method } from "axios";
+/**
+ * HTTP methods accepted by the client.
+ *
+ * Moodle's REST server only really honours GET and POST, but the previous
+ * axios-based signature accepted any method, so the surface is kept open.
+ */
+export type HttpMethod =
+    | "GET"
+    | "POST"
+    | "PUT"
+    | "PATCH"
+    | "DELETE"
+    | "HEAD"
+    | "OPTIONS";
 
 /**
  * @interface IURLRequest
@@ -17,11 +30,39 @@ export interface IURLRequest {
  * @interface IDataRequest
  * @description Interface for the data request object
  * @param {IURLRequest} urlRequest - The request object
- * @param {Object} content - The content object
- * @param {Method} method - The method object
+ * @param {object} content - The content object
+ * @param {HttpMethod} method - The HTTP method, POST when omitted
  */
 export interface IDataRequest {
     urlRequest: IURLRequest;
-    content: Object;
-    method?: Method;
+    content: object;
+    method?: HttpMethod;
+}
+
+/**
+ * @interface IMoodleResponse
+ * @description What a successful call resolves to.
+ *
+ * The shape mirrors the part of the old axios response consumers actually
+ * touched, so `response.data` keeps working. `data` defaults to `any`
+ * because that is what axios typed it as; pass a type argument to
+ * `moodleClient<T>()` to get a checked body instead.
+ */
+export interface IMoodleResponse<T = any> {
+    data: T;
+    status: number;
+    statusText: string;
+    ok: boolean;
+    headers: Headers;
+}
+
+/**
+ * @interface IMoodleErrorBody
+ * @description The JSON body Moodle returns when a web service call fails.
+ */
+export interface IMoodleErrorBody {
+    errorcode: string;
+    exception?: string;
+    message?: string;
+    debuginfo?: string;
 }

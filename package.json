@@ -47,10 +47,7 @@
     "Hector L. Arrechea <hectorlazaroarrechea@gmail.com> (https://github.com/hector-ae21)"
   ],
   "license": "MIT",
-  "dependencies": {
-    "axios": "^0.33.0",
-    "form-data": "^4.0.0"
-  },
+  "sideEffects": false,
   "devDependencies": {
     "@types/node": "^22.0.0",
     "rimraf": "^6.0.0",
