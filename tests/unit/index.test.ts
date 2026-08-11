@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import * as publicApi from "../../src";
 
-// The package now ships only dist/, so the deep paths that used to exist by
-// accident (".../lib/errors/invalid-token-error") are gone. Anything a
-// consumer needs to catch an error or type a request has to be reachable
-// from the entry point, and stay reachable.
+// The package ships only dist/, so the deep import paths that used to exist
+// by accident (".../lib/errors/invalid-token-error") are gone. Anything a
+// consumer needs to make a call, type it or catch its errors has to be
+// reachable from the entry point, and stay reachable.
 describe("public API", () => {
-    it("exposes the client", () => {
+    it("exposes both ways of making a call", () => {
+        expect(typeof publicApi.MoodleClient).toBe("function");
         expect(typeof publicApi.moodleClient).toBe("function");
+    });
+
+    it("exposes the response class", () => {
+        expect(typeof publicApi.MoodleResponse).toBe("function");
     });
 
     it.each([
@@ -29,7 +34,9 @@ describe("public API", () => {
             "InvalidParameter",
             "InvalidRecord",
             "InvalidToken",
+            "MoodleClient",
             "MoodleException",
+            "MoodleResponse",
             "URLError",
             "moodleClient",
         ]);

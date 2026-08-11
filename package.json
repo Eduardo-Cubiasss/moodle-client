@@ -1,6 +1,6 @@
 {
   "name": "@didactika/moodle-client",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Typed Moodle web service client with no runtime dependencies, built on native fetch",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

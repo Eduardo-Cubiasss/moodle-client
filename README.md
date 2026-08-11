@@ -13,8 +13,10 @@ the Node standard library.
 
 ## Requirements
 
-Node 20 or newer, and a Moodle site with web services enabled and a token
-for the functions you intend to call.
+Node 20 or newer, and a Moodle site with web services and the REST protocol
+enabled, plus a token for the functions you intend to call.
+[docs/getting-started.md](docs/getting-started.md) walks through setting
+that up.
 
 ## Installation
 
@@ -31,38 +33,41 @@ work without any configuration.
 ## Usage
 
 ```ts
+import { MoodleClient } from "@didactika/moodle-client";
+
+const moodle = new MoodleClient({
+  rootURL: "https://moodle.example.org",
+  token: process.env.MOODLE_TOKEN!,
+});
+
+const { data } = await moodle.call("core_course_get_courses", {
+  options: { ids: [1, 2, 3] },
+});
+```
+
+Build the client once and reuse it: the site, the token and the default
+method are settled at construction, so each call only names the function it
+wants.
+
+`content` is nested freely and flattened into the `parent[child][index]`
+keys Moodle reads, so the example above goes out as `options[ids][0]=1`,
+`options[ids][1]=2`, `options[ids][2]=3`. `null` and `undefined` are dropped.
+
+### A single call
+
+`moodleClient()` is the one-shot form the package shipped with. Same path,
+same behaviour, same errors.
+
+```ts
 import { moodleClient } from "@didactika/moodle-client";
 
 const response = await moodleClient({
   urlRequest: {
-    rootURL: "http://localhost/moodle",
-    token: "aeb315e6dd3affc18352fe46124cdd48",
+    rootURL: "https://moodle.example.org",
+    token: process.env.MOODLE_TOKEN!,
     webServiceFunction: "core_course_get_courses",
   },
-  content: {
-    options: {
-      ids: [1, 2, 3],
-    },
-  },
-});
-
-console.log(response.data);
-```
-
-`content` is nested freely and flattened into the `parent[child][index]` keys
-Moodle reads, so the example above goes out as `options[ids][0]=1`,
-`options[ids][1]=2`, `options[ids][2]=3`. `null` and `undefined` are dropped.
-
-### Choosing the method
-
-`POST` is used when `method` is omitted. `GET` and `HEAD` send their
-parameters in the query string; every other method sends a urlencoded body.
-
-```ts
-const response = await moodleClient({
-  urlRequest: { rootURL, token, webServiceFunction: "core_course_get_courses" },
   content: { options: { ids: [1, 2, 3] } },
-  method: "GET",
 });
 ```
 
@@ -73,42 +78,19 @@ The body is `any` by default. Pass a type argument to have it checked:
 ```ts
 type Course = { id: number; fullname: string };
 
-const { data } = await moodleClient<Course[]>({
-  urlRequest: { rootURL, token, webServiceFunction: "core_course_get_courses" },
-  content: {},
-});
+const { data } = await moodle.call<Course[]>("core_course_get_courses");
 ```
 
-### What a call resolves to
+### Errors
 
-| Field | Type | |
-| --- | --- | --- |
-| `data` | `T` | the parsed JSON body, or the raw text when it is not JSON |
-| `status` | `number` | HTTP status code |
-| `statusText` | `string` | HTTP status text |
-| `ok` | `boolean` | whether the status was a 2xx |
-| `headers` | `Headers` | response headers |
-
-## Errors
-
-A failed call throws rather than resolving. Every error carries `name`,
-`message`, `status`, and `debugInfo` when Moodle supplied one.
-
-| Error | Thrown when Moodle reports | `status` |
-| --- | --- | --- |
-| `InvalidToken` | `invalidtoken` | 401 |
-| `AccessException` | `accessexception` | 403 |
-| `InvalidParameter` | `invalidparameter` | 400 |
-| `InvalidRecord` | `invalidrecord` | 404 |
-| `MoodleException` | any other code flagged as a `moodle_exception` | the site's own |
-| `BadRequestError` | any other code | 400 |
-| `URLError` | the site could not be reached, or answered with a failing status and no Moodle error in it | 404 |
+A failed call throws. Each Moodle error code has its own class, so
+`instanceof` is enough to route them:
 
 ```ts
-import { moodleClient, InvalidToken, MoodleException } from "@didactika/moodle-client";
+import { InvalidToken, MoodleException } from "@didactika/moodle-client";
 
 try {
-  await moodleClient({ urlRequest, content: {} });
+  await moodle.call("core_course_get_courses");
 } catch (error) {
   if (error instanceof InvalidToken) {
     // the token is wrong or has expired
@@ -118,27 +100,30 @@ try {
 }
 ```
 
-### Getting Moodle to explain itself
+The full list, and why the status codes come from two different places, is
+in [docs/errors.md](docs/errors.md).
 
-`debugInfo` is only populated when the site is willing to send it. Turn it on
-under *Site administration -> Development -> Debugging*, with the debugging
-level set to *DEVELOPER*. Leave it off in production.
+## Documentation
+
+- [Getting started](docs/getting-started.md) — install, what to enable on
+  the Moodle side, and the first call.
+- [API reference](docs/api-reference.md) — every class, method and type.
+- [Errors](docs/errors.md) — what gets thrown, and how to tell the cases
+  apart.
+- [Examples](examples) — runnable scripts for the usual shapes.
 
 ## Migrating from 1.x
 
-`response.data` is unchanged. See the [CHANGELOG](CHANGELOG.md#200---2026-08-11)
-for the full list, including the deep imports that were replaced by named
-exports from the package root.
-
-## Docs
-
-[Creating a web service client](https://docs.moodle.org/dev/Creating_a_web_service_client)
-on the Moodle developer wiki.
+`response.data` is unchanged. See the [CHANGELOG](CHANGELOG.md) for the full
+list, including the deep imports that were replaced by named exports from the
+package root.
 
 ## Contributing
 
 Bug reports and feature requests both go to
-[the issue tracker](https://github.com/didactika/moodle-client/issues).
+[the issue tracker](https://github.com/didactika/moodle-client/issues). The
+org's [contributing guide](https://github.com/didactika/.github/blob/main/CONTRIBUTING.md)
+covers the rest.
 
 ```console
 npm install
@@ -149,12 +134,12 @@ npm run test:coverage
 Unit tests live in `tests/unit`. Integration tests in `tests/integration` run
 against a throwaway local HTTP server, so they need no Moodle install.
 
-## Authors
+## Contributors
 
-Maintained by [Didactika](https://github.com/didactika).
+Thanks to everyone who has contributed to this project:
 
-- [Hector L. Arrechea](https://github.com/hector-ae21)
+[![Contributors](https://contrib.rocks/image?repo=didactika/moodle-client)](https://github.com/didactika/moodle-client/graphs/contributors)
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — © [Didactika](https://github.com/didactika)

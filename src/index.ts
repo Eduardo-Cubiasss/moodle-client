@@ -1,10 +1,10 @@
-import core from "./core";
-
-export const moodleClient = core;
+export { MoodleClient, moodleClient } from "./client/moodle-client";
+export { MoodleResponse } from "./client/moodle-response";
 
 export type {
     HttpMethod,
     IDataRequest,
+    IMoodleClientOptions,
     IMoodleErrorBody,
     IMoodleResponse,
     IURLRequest,

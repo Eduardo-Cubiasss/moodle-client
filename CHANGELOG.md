@@ -14,6 +14,45 @@ not reconstructed from memory.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-11
+
+Nothing here breaks 2.0.0: `moodleClient()` keeps the same signature and
+goes through the same path. The client is object-oriented now, and the one
+thing worth adopting is `MoodleClient`.
+
+### Added
+
+- **`MoodleClient`.** A client for one site, built once and reused: the
+  site, the token and the default method are settled at construction, so
+  each call only names the function it wants.
+
+  ```ts
+  const moodle = new MoodleClient({ rootURL, token });
+  await moodle.call("core_course_get_courses", { options: { ids: [1, 2] } });
+  ```
+
+- **`MoodleResponse`** is exported. Beyond the fields it already had, it
+  answers `isMoodleError` and can re-run `throwOnMoodleError()` — useful
+  when a response is passed around after the call that produced it.
+- `IMoodleClientOptions`, for typing what a client is built with.
+- Documentation of our own under `docs/`: getting started (including what to
+  enable on the Moodle side), an API reference, and a page on errors.
+- Runnable scripts under `examples/`, from a one-line site-info call to
+  narrowing every error case.
+
+### Changed
+
+- The internals are classes rather than free functions: `MoodleEndpoint`
+  owns the URL, `RequestContent` owns the flattening, `MoodleResponse` owns
+  deciding whether the site reported a failure. Deciding that lives on the
+  response because Moodle reports web service errors inside a 200 body, so
+  it is a judgement about the body rather than about the status code.
+- `moodleClient()` resolves to a `MoodleResponse` instead of a plain object.
+  It still satisfies `IMoodleResponse`, so nothing that reads `data`,
+  `status`, `statusText`, `ok` or `headers` notices.
+- The README points at our own documentation rather than at Moodle's
+  developer wiki, which is linked from the pages where it is relevant.
+
 ## [2.0.0] - 2026-08-11
 
 ### Removed

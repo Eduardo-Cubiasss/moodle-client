@@ -125,7 +125,7 @@ jobs:
           node -e "
             const [p]=require('/tmp/pack.json');
             const files=p.files.map(f=>f.path);
-            const leaked=files.filter(f=>/^(src|tests|docs|scripts)\//.test(f));
+            const leaked=files.filter(f=>/^(src|tests|docs|examples|scripts)\//.test(f));
             if(leaked.length){console.error('Unexpected files in the package:',leaked);process.exit(1);}
             if(!files.some(f=>f.startsWith('dist/'))){console.error('No dist/ in the package');process.exit(1);}
             console.log('Tarball contents ok:',files.length,'files,',p.size,'bytes');

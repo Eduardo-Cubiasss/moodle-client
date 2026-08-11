@@ -14,6 +14,20 @@ export type HttpMethod =
     | "OPTIONS";
 
 /**
+ * @interface IMoodleClientOptions
+ * @description What a {@link MoodleClient} is built with: everything that
+ * stays the same across the calls it makes.
+ * @param {string} rootURL - The site's base URL
+ * @param {string} token - A Moodle web service token
+ * @param {HttpMethod} method - Default method for every call, POST when omitted
+ */
+export interface IMoodleClientOptions {
+    rootURL: string;
+    token: string;
+    method?: HttpMethod;
+}
+
+/**
  * @interface IURLRequest
  * @description Interface for the request object
  * @param {string} rootURL - The root URL
