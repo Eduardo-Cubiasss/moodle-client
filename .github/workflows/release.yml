@@ -108,18 +108,16 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      # This package builds to lib/ as CommonJS only (tsc -b, no bundler) —
-      # unlike the org's dual CJS/ESM template default, so both checks below
-      # are adjusted to match instead of copied as-is.
       - name: Built output must exist
         run: |
-          for f in lib/index.js lib/index.d.ts; do
+          for f in dist/index.js dist/index.mjs dist/index.d.ts; do
             [ -s "$f" ] || { echo "::error::Missing build artifact: $f"; exit 1; }
           done
 
-      - name: Package must be importable
+      - name: Package must be importable (CJS and ESM)
         run: |
-          node -e "const m=require('./lib/index.js'); if(!m||Object.keys(m).length===0) throw new Error('export missing'); console.log('ok');"
+          node -e "const m=require('./dist/index.js'); if(typeof m.moodleClient !== 'function') throw new Error('CJS export missing'); console.log('CJS ok');"
+          node --input-type=module -e "import('./dist/index.mjs').then(m=>{if(typeof m.moodleClient !== 'function')throw new Error('ESM export missing');console.log('ESM ok')})"
 
       - name: Inspect the tarball (no source, no docs)
         run: |
@@ -129,7 +127,7 @@ jobs:
             const files=p.files.map(f=>f.path);
             const leaked=files.filter(f=>/^(src|tests|docs|scripts)\//.test(f));
             if(leaked.length){console.error('Unexpected files in the package:',leaked);process.exit(1);}
-            if(!files.some(f=>f.startsWith('lib/'))){console.error('No lib/ in the package');process.exit(1);}
+            if(!files.some(f=>f.startsWith('dist/'))){console.error('No dist/ in the package');process.exit(1);}
             console.log('Tarball contents ok:',files.length,'files,',p.size,'bytes');
           "
 

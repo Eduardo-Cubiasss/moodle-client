@@ -1,4 +1,4 @@
-import { IURLRequest } from "../../types/core";
+import { IURLRequest } from "../types/core";
 import FormData from "form-data";
 
 /**

@@ -1,5 +1,5 @@
 import axios from "axios";
-import { IDataRequest } from "../../types/core";
+import { IDataRequest } from "../types/core";
 import { formatContent, getUrl } from "./functions";
 import { findError } from "../errors/error-handler";
 import { URLError } from "../errors/url-error";
