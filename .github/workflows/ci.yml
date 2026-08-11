@@ -53,7 +53,20 @@ jobs:
     permissions:
       contents: read
     steps:
-      - run: echo "All test jobs passed."
+      # The `always()` above is what lets this job report at all when `test`
+      # was skipped — but it also means it runs when `test` FAILED, and a
+      # bare `echo` would exit 0 over a red suite. As a required check that
+      # reads green while the tests are broken, which is worse than having no
+      # gate. So the result is asserted rather than assumed.
+      - name: Every test job must have passed
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+        run: |
+          if [ "$TEST_RESULT" != "success" ]; then
+            echo "::error::test did not pass (result: $TEST_RESULT)"
+            exit 1
+          fi
+          echo "All test jobs passed."
 
   # A tag pushed with GITHUB_TOKEN does not trigger another workflow automatically.
   # A push to a vX.x branch is always an already-tested merge (verify is skipped
