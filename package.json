@@ -27,8 +27,12 @@
   "scripts": {
     "clean": "rimraf dist",
     "build": "tsup src/index.ts --dts --format cjs,esm --target node20",
-    "typecheck": "tsc --noEmit",
-    "test": "echo \"no automated tests yet\""
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "repository": {
     "type": "git",
@@ -50,9 +54,14 @@
   "sideEffects": false,
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^4.1.0",
     "rimraf": "^6.0.0",
     "tsup": "^8.0.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  },
+  "overrides": {
+    "esbuild": "^0.28.2"
   },
   "bugs": {
     "url": "https://github.com/didactika/moodle-client/issues"

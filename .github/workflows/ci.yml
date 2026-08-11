@@ -35,9 +35,9 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      # If your build needs a codegen step first (Prisma, GraphQL codegen,
-      # protobufs, ...), add it here, e.g.:
-      #   - run: npx prisma generate
+      # vitest strips types with esbuild instead of checking them, so nothing
+      # else in this job would catch a type error inside tests/.
+      - run: npm run typecheck
       - run: npm run build
       - run: npm test
 
