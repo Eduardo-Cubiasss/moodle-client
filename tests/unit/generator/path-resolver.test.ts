@@ -14,48 +14,48 @@ describe("Path Resolver & Naming Conventions", () => {
     });
 
     describe("resolveWebserviceFilePath", () => {
-        it("should resolve core subsystems into core/<subsystem>/<action>.webservice-client.ts", () => {
+        it("should resolve core subsystems into core/<subsystem>/<action>.webservice-client.d.ts", () => {
             expect(resolveWebserviceFilePath("core_course_get_courses")).toBe(
-                "core/course/get_courses.webservice-client.ts"
+                "core/course/get_courses.webservice-client.d.ts"
             );
             expect(resolveWebserviceFilePath("core_user_get_users")).toBe(
-                "core/user/get_users.webservice-client.ts"
+                "core/user/get_users.webservice-client.d.ts"
             );
             expect(resolveWebserviceFilePath("core_webservice_get_site_info")).toBe(
-                "core/webservice/get_site_info.webservice-client.ts"
+                "core/webservice/get_site_info.webservice-client.d.ts"
             );
             expect(resolveWebserviceFilePath("core_enrol_get_users_courses")).toBe(
-                "core/enrol/get_users_courses.webservice-client.ts"
+                "core/enrol/get_users_courses.webservice-client.d.ts"
             );
         });
 
-        it("should resolve activity modules into mod/<plugin>/<action>.webservice-client.ts", () => {
+        it("should resolve activity modules into mod/<plugin>/<action>.webservice-client.d.ts", () => {
             expect(resolveWebserviceFilePath("mod_assign_get_assignments")).toBe(
-                "mod/assign/get_assignments.webservice-client.ts"
+                "mod/assign/get_assignments.webservice-client.d.ts"
             );
             expect(resolveWebserviceFilePath("mod_quiz_get_user_attempts")).toBe(
-                "mod/quiz/get_user_attempts.webservice-client.ts"
+                "mod/quiz/get_user_attempts.webservice-client.d.ts"
             );
             expect(resolveWebserviceFilePath("mod_forum_get_forum_discussions")).toBe(
-                "mod/forum/get_forum_discussions.webservice-client.ts"
+                "mod/forum/get_forum_discussions.webservice-client.d.ts"
             );
         });
 
         it("should resolve other Frankenstyle plugins (gradereport, local, enrol, tool, auth)", () => {
             expect(resolveWebserviceFilePath("gradereport_user_get_grade_items")).toBe(
-                "gradereport/user/get_grade_items.webservice-client.ts"
+                "gradereport/user/get_grade_items.webservice-client.d.ts"
             );
             expect(resolveWebserviceFilePath("local_custom_sync_users")).toBe(
-                "local/custom/sync_users.webservice-client.ts"
+                "local/custom/sync_users.webservice-client.d.ts"
             );
             expect(resolveWebserviceFilePath("tool_mobile_get_autologin_key")).toBe(
-                "tool/mobile/get_autologin_key.webservice-client.ts"
+                "tool/mobile/get_autologin_key.webservice-client.d.ts"
             );
         });
 
         it("should handle custom or 2-segment names by splitting prefix and action", () => {
             expect(resolveWebserviceFilePath("custom_action")).toBe(
-                "custom/action.webservice-client.ts"
+                "custom/action.webservice-client.d.ts"
             );
         });
     });

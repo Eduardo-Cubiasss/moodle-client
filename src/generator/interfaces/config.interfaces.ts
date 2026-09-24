@@ -6,8 +6,8 @@ export interface MoodleClientConfig {
     version: string;
     /** List of webservice patterns or exact names to include */
     webservices: string[];
-    /** Output directory path for generated webservice client files */
-    outDir: string;
+    /** Optional output directory path for generated webservice client files */
+    outDir?: string;
     /** Local filesystem path to Moodle codebase (if present, isLocal is true) */
     moodlePath?: string;
     /** Whether extraction uses local codebase or downloads official remote git version */

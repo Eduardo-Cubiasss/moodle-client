@@ -37,6 +37,14 @@ describe("Barrel & Declaration Merging Emitter", () => {
             "core_user_create_users(params: CoreUserCreateUsersParams, method?: HttpMethod): Promise<MoodleResponse<CoreUserCreateUsersReturns>>"
         );
 
+        // Verifica JSDoc con @param y @returns
+        expect(barrelCode).toContain("* Return course details");
+        expect(barrelCode).toContain("* @param {CoreCourseGetCoursesParams} [params]");
+        expect(barrelCode).toContain("* @param {CoreUserCreateUsersParams} params");
+        expect(barrelCode).toContain("* @param {HttpMethod} [method] - Optional HTTP method override ('GET' | 'POST')");
+        expect(barrelCode).toContain("* @returns {Promise<MoodleResponse<CoreCourseGetCoursesReturns>>}");
+        expect(barrelCode).toContain("* @returns {Promise<MoodleResponse<CoreUserCreateUsersReturns>>}");
+
         // Verifica el Declaration Merging
         expect(barrelCode).toContain('declare module "@didactika/moodle-client"');
         expect(barrelCode).toContain("interface MoodleClient extends GeneratedMoodleServices");

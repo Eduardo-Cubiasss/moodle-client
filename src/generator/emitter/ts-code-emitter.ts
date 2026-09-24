@@ -133,6 +133,7 @@ export function emitWebserviceCode(schema: WebServiceSchema): string {
             : `export interface ${pascalName}Params {}`;
 
     // 2. Emit Returns Type / Interface
+    const returnsJsDoc = formatJsDoc(schema.returns?.description);
     let returnsDeclaration = "";
     if (schema.returns && (schema.returns.kind === "object" || (schema.returns as any).keys)) {
         const objSchema = schema.returns as WebServiceObjectSchema;
@@ -149,15 +150,15 @@ export function emitWebserviceCode(schema: WebServiceSchema): string {
                     return `${jsdoc}    ${propName}${optMark}: ${rendered};`;
                 })
                 .join("\n");
-            returnsDeclaration = `export interface ${pascalName}Returns {\n${body}\n}`;
+            returnsDeclaration = `${returnsJsDoc}export interface ${pascalName}Returns {\n${body}\n}`;
         } else {
-            returnsDeclaration = `export interface ${pascalName}Returns {}`;
+            returnsDeclaration = `${returnsJsDoc}export interface ${pascalName}Returns {}`;
         }
     } else if (schema.returns) {
         const rendered = renderTypeNode(schema.returns, 1);
-        returnsDeclaration = `export type ${pascalName}Returns = ${rendered};`;
+        returnsDeclaration = `${returnsJsDoc}export type ${pascalName}Returns = ${rendered};`;
     } else {
-        returnsDeclaration = `export type ${pascalName}Returns = unknown;`;
+        returnsDeclaration = `${returnsJsDoc}export type ${pascalName}Returns = unknown;`;
     }
 
     // 3. Convenience Aliases

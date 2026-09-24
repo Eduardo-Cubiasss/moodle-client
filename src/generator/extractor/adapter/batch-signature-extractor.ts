@@ -33,13 +33,14 @@ function resolveExistingPath(candidates: string[]): string | null {
  */
 export function getBatchCliExecutorPath(): string {
     const candidates = [
-        path.resolve(__dirname, '../src/php-adapter/batch-cli-executor.php'),
+        path.resolve(__dirname, 'php-adapter/batch-cli-executor.php'),
+        path.resolve(__dirname, '../php-adapter/batch-cli-executor.php'),
         path.resolve(__dirname, '../../php-adapter/batch-cli-executor.php'),
-        path.resolve(__dirname, './src/php-adapter/batch-cli-executor.php'),
-        path.resolve(__dirname, 'php-adapter/batch-cli-executor.php')
+        path.resolve(__dirname, '../../src/generator/php-adapter/batch-cli-executor.php')
     ];
     const found = resolveExistingPath(candidates);
-    return found ?? path.resolve(__dirname, '../src/php-adapter/batch-cli-executor.php');
+    const defaultPath = path.resolve(__dirname, 'php-adapter/batch-cli-executor.php');
+    return found ?? defaultPath;
 }
 
 /**

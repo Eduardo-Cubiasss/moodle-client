@@ -1,0 +1,45 @@
+/** Duplicate learning plan template. */
+export interface CoreCompetencyDuplicateTemplateParams {
+    /** The template id */
+    id: number | null;
+}
+
+export interface CoreCompetencyDuplicateTemplateReturns {
+    /** shortname */
+    shortname: string;
+    /** description */
+    description: string;
+    /** description format (1 = HTML, 0 = MOODLE, 2 = PLAIN, or 4 = MARKDOWN) */
+    descriptionformat?: number | null;
+    /** duedate */
+    duedate: number;
+    /** visible */
+    visible: boolean;
+    /** contextid */
+    contextid: number;
+    /** id */
+    id: number;
+    /** timecreated */
+    timecreated: number;
+    /** timemodified */
+    timemodified: number;
+    /** usermodified */
+    usermodified: number;
+    /** duedateformatted */
+    duedateformatted: string;
+    /** cohortscount */
+    cohortscount: number;
+    /** planscount */
+    planscount: number;
+    /** canmanage */
+    canmanage: boolean;
+    /** canread */
+    canread: boolean;
+    /** contextname */
+    contextname: string;
+    /** contextnamenoprefix */
+    contextnamenoprefix: string;
+}
+
+export type CoreCompetencyDuplicateTemplateReturn = CoreCompetencyDuplicateTemplateReturns;
+export type core_competency_duplicate_template_returns = CoreCompetencyDuplicateTemplateReturns;

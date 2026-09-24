@@ -24,9 +24,12 @@
   "engines": {
     "node": ">=20"
   },
+  "bin": {
+    "moodle-client": "./dist/generator/cli.js"
+  },
   "scripts": {
     "clean": "rimraf dist",
-    "build": "tsup src/index.ts --dts --format cjs,esm --target node20",
+    "build": "tsup && node scripts/postbuild.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",

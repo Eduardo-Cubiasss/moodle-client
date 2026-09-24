@@ -16,8 +16,12 @@ export const FALLBACK_MOODLE_VERSION = "4.5";
  * @returns {string} Normalized 'Major.Minor' version string
  */
 export function normalizeMoodleVersion(version: string): string {
-    const match = version.trim().match(/^(\d+(?:\.\d+)?)/);
-    return match && match[1] ? match[1] : version.trim();
+    const clean = version.trim().replace(/^v/i, "");
+    const match = clean.match(/^(\d+)(?:\.(\d+))?/);
+    if (match && match[1]) {
+        return match[2] !== undefined ? `${match[1]}.${match[2]}` : match[1];
+    }
+    return clean;
 }
 
 /**
@@ -62,9 +66,27 @@ export async function loadOrCreateConfig(
 
     const version = normalizeMoodleVersion(parsed.version || defaultVersion);
     const webservices = parsed.webservices && parsed.webservices.length > 0 ? parsed.webservices : ["*"];
-    const outDir = parsed.outDir || DEFAULT_OUT_DIR;
     const moodlePath = parsed.moodlePath;
     const isLocal = Boolean(moodlePath);
+    const outDir = parsed.outDir && parsed.outDir.trim().length > 0 ? parsed.outDir.trim() : undefined;
+
+    if (moodlePath && !outDir) {
+        throw new Error(
+            `[moodle-client] Configuration Error: 'outDir' is required in '${path.basename(configPath)}' when 'moodlePath' is defined.\n\n` +
+            `Configuration file: ${configPath}\n` +
+            `Missing property: "outDir"\n\n` +
+            `Example of required configuration in '${path.basename(configPath)}':\n` +
+            JSON.stringify(
+                {
+                    moodlePath: moodlePath,
+                    outDir: "./moodle-schemas",
+                    webservices: webservices,
+                },
+                null,
+                2
+            )
+        );
+    }
 
     return {
         version,

@@ -10,6 +10,10 @@ export interface GeneratedServiceMetadata {
     hasRequiredParams: boolean;
     /** Optional human-readable description */
     description?: string;
+    /** Optional human-readable description of parameters */
+    paramsDescription?: string;
+    /** Optional human-readable description of returns */
+    returnsDescription?: string;
 }
 
 /**

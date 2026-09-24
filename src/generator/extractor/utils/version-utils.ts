@@ -142,7 +142,7 @@ export function isValidVersionString(version: string): boolean {
     if (!version) {
         return false;
     }
-    return /^\d+\.\d+(?:\.\d+)?/.test(version.trim());
+    return /^v?\d+\.\d+(?:\.[xX\d]+)?/.test(version.trim());
 }
 
 /**

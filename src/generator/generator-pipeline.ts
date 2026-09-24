@@ -11,6 +11,12 @@ import {
     WebServiceSchema,
     GeneratedServiceMetadata,
 } from "./interfaces/generator.interfaces";
+import { DEFAULT_CONFIG_FILENAME } from "./config/config-manager";
+import {
+    hasExistingSchemas,
+    syncSchemas,
+    resolveInternalPackageSchemasDir,
+} from "./syncer/schema-syncer";
 
 /**
  * Generates all individual `.webservice-client.ts` files and the central `index.ts` barrel.
@@ -41,33 +47,65 @@ export async function generateWebserviceFiles(
         const code = emitWebserviceCode(schema);
         await fs.writeFile(absoluteFilePath, code, "utf-8");
 
-        const relativeImportPath = `./${relFilePath.replace(/\.ts$/, "")}`;
+        const relativeImportPath = `./${relFilePath.replace(/\.d\.ts$/, "").replace(/\.ts$/, "")}`;
         metadataList.push({
             name: schema.name,
             relativeImportPath,
             hasRequiredParams: hasRequiredParameters(schema),
             description: schema.description,
+            paramsDescription: schema.parameters?.description,
+            returnsDescription: schema.returns?.description,
         });
     }
 
-    // 3. Emit central index.ts barrel
+    // 3. Emit central index.d.ts and index.ts barrel
     const barrelCode = emitBarrelCode(metadataList);
+    await fs.writeFile(path.join(outDir, "index.d.ts"), barrelCode, "utf-8");
     await fs.writeFile(path.join(outDir, "index.ts"), barrelCode, "utf-8");
 }
 
 /**
  * Runs the complete end-to-end generator pipeline:
- * 1. Loads or creates default config.
- * 2. If remote: shallow clones target version tag.
- * 3. Extracts webservice AST schemas via headless PHP adapter.
- * 4. Cleans up temp clone if remote.
- * 5. Generates all .webservice-client.ts files and index.ts barrel.
+ * 1. Loads or creates config.
+ * 2. If outDir is specified and schemas already exist, skips extraction and synchronizes with package.
+ * 3. Otherwise extracts webservice AST schemas via headless PHP adapter.
+ * 4. Generates files and synchronizes them into internal @didactika/moodle-client package.
  *
  * @param {string} [configPath] - Optional path to config file
  * @returns {Promise<void>}
  */
 export async function runGeneratorPipeline(configPath?: string): Promise<void> {
+    const resolvedConfigPath = configPath
+        ? path.resolve(configPath)
+        : path.resolve(process.cwd(), DEFAULT_CONFIG_FILENAME);
+    const configDir = path.dirname(resolvedConfigPath);
+
     const config = await loadOrCreateConfig(configPath);
+
+    // Task 2 & Task 7: If outDir is defined and already contains schemas,
+    // skip generation/extraction, synchronize schemas with internal package, and inform user in English.
+    if (config.outDir) {
+        const resolvedOutDir = path.resolve(configDir, config.outDir);
+        const existsWithSchemas = await hasExistingSchemas(resolvedOutDir);
+
+        if (existsWithSchemas) {
+            console.log(`[moodle-client] Schemas already exist in '${config.outDir}'. Generation skipped.`);
+            const { syncedCount } = await syncSchemas(resolvedOutDir, configDir);
+            console.log(
+                `[moodle-client] Synchronized ${syncedCount} schemas from '${config.outDir}' to internal '@didactika/moodle-client' package.`
+            );
+            console.log(
+                `[moodle-client] You can import types and clients directly: import { MoodleClient, MoodleResponse, ... } from "@didactika/moodle-client";`
+            );
+            return;
+        }
+    }
+
+    // Determine target output directory
+    const targetOutDir = config.outDir
+        ? path.resolve(configDir, config.outDir)
+        : resolveInternalPackageSchemasDir(configDir);
+
     let targetMoodlePath = config.moodlePath;
     let shouldCleanup = false;
 
@@ -84,11 +122,44 @@ export async function runGeneratorPipeline(configPath?: string): Promise<void> {
             concurrency: 8,
         });
 
-        await generateWebserviceFiles(result.schemas as any, config.outDir);
+        if (result.errors && result.errors.length > 0) {
+            for (const err of result.errors) {
+                console.error(
+                    `[moodle-client] Extraction error: [${err.code}] ${err.serviceName ? `(${err.serviceName}) ` : ""}${err.message}`
+                );
+            }
+            if (result.schemas.length === 0) {
+                throw new Error(
+                    `Failed to extract web services: ${result.errors[0]?.message ?? "Unknown extraction error"}`
+                );
+            }
+        }
+
+        await generateWebserviceFiles(result.schemas as any, targetOutDir);
+
+        // Synchronize with internal package
+        const { syncedCount } = await syncSchemas(targetOutDir, configDir);
+
+        if (config.outDir) {
+            console.log(
+                `[moodle-client] Successfully generated ${result.schemas.length} webservices into '${config.outDir}'.`
+            );
+            console.log(
+                `[moodle-client] Synchronized ${syncedCount} schemas from '${config.outDir}' to internal '@didactika/moodle-client' package.`
+            );
+        } else {
+            console.log(
+                `[moodle-client] Successfully generated ${result.schemas.length} webservices into internal '@didactika/moodle-client' package.`
+            );
+        }
+        console.log(
+            `[moodle-client] You can import types and clients directly: import { MoodleClient, MoodleResponse, ... } from "@didactika/moodle-client";`
+        );
     } finally {
         if (shouldCleanup && targetMoodlePath) {
             await cleanupMoodleDirectory(targetMoodlePath);
         }
     }
 }
+
 
