@@ -24,7 +24,7 @@ describe("public API", () => {
         "MoodleException",
         "URLError",
     ])("exposes %s so it can be caught by type", (name) => {
-        expect(typeof publicApi[name as keyof typeof publicApi]).toBe("function");
+        expect(typeof (publicApi as Record<string, unknown>)[name]).toBe("function");
     });
 
     it("exposes nothing else", () => {

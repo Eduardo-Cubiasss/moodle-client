@@ -29,7 +29,7 @@
   },
   "scripts": {
     "clean": "rimraf dist",
-    "build": "tsup && node scripts/postbuild.mjs",
+    "build": "tsup",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
@@ -73,7 +73,6 @@
   },
   "homepage": "https://github.com/didactika/moodle-client#readme",
   "dependencies": {
-    "p-limit": "^7.3.3",
-    "php-parser": "^3.7.0"
+    "@didactika/moodle-client-schemas": "file:../moodle-client-schemas"
   }
 }
