@@ -1,0 +1,8 @@
+{
+  "plugintypes": {
+    "mod": "mod"
+  },
+  "subsystems": {
+    "core": "lib"
+  }
+}

@@ -32,6 +32,17 @@ export class MoodleClient {
     constructor(options: IMoodleClientOptions) {
         this.endpoint = new MoodleEndpoint(options.rootURL, options.token);
         this.defaultMethod = options.method ?? "POST";
+
+        return new Proxy(this, {
+            get(target, prop, receiver) {
+                if (typeof prop === "string" && !(prop in target)) {
+                    return (content?: object, method?: HttpMethod) => {
+                        return target.call(prop, content, method);
+                    };
+                }
+                return Reflect.get(target, prop, receiver);
+            },
+        });
     }
 
     /**

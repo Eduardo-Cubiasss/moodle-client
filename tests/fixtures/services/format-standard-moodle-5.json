@@ -1,0 +1,234 @@
+{
+  "kind": "program",
+  "children": [
+    {
+      "kind": "inline",
+      "value": "    ",
+      "raw": "    "
+    },
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "bin",
+        "type": "||",
+        "left": {
+          "kind": "call",
+          "what": {
+            "kind": "name",
+            "name": "defined",
+            "resolution": "uqn"
+          },
+          "arguments": [
+            {
+              "kind": "string",
+              "value": "MOODLE_INTERNAL",
+              "raw": "'MOODLE_INTERNAL'",
+              "unicode": false,
+              "isDoubleQuote": false
+            }
+          ]
+        },
+        "right": {
+          "kind": "exit",
+          "expression": null,
+          "useDie": true
+        }
+      }
+    },
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "assign",
+        "left": {
+          "kind": "variable",
+          "name": "functions",
+          "curly": false
+        },
+        "right": {
+          "kind": "array",
+          "items": [
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "aiplacement_editor_generate_image",
+                "raw": "'aiplacement_editor_generate_image'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "staticlookup",
+                      "what": {
+                        "kind": "name",
+                        "name": "\\aiplacement_editor\\external\\generate_image",
+                        "resolution": "fqn"
+                      },
+                      "offset": {
+                        "kind": "identifier",
+                        "name": "class"
+                      }
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "ajax",
+                      "raw": "'ajax'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": true,
+                      "raw": "true"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "services",
+                      "raw": "'services'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "array",
+                      "items": [
+                        {
+                          "kind": "entry",
+                          "key": null,
+                          "value": {
+                            "kind": "name",
+                            "name": "MOODLE_OFFICIAL_MOBILE_SERVICE",
+                            "resolution": "uqn"
+                          },
+                          "byRef": false,
+                          "unpack": false
+                        }
+                      ],
+                      "shortForm": true
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": true
+              },
+              "byRef": false,
+              "unpack": false
+            },
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "aiplacement_editor_generate_text",
+                "raw": "'aiplacement_editor_generate_text'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "staticlookup",
+                      "what": {
+                        "kind": "name",
+                        "name": "\\aiplacement_editor\\external\\generate_text",
+                        "resolution": "fqn"
+                      },
+                      "offset": {
+                        "kind": "identifier",
+                        "name": "class"
+                      }
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "ajax",
+                      "raw": "'ajax'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": true,
+                      "raw": "true"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "services",
+                      "raw": "'services'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "array",
+                      "items": [
+                        {
+                          "kind": "entry",
+                          "key": null,
+                          "value": {
+                            "kind": "name",
+                            "name": "MOODLE_OFFICIAL_MOBILE_SERVICE",
+                            "resolution": "uqn"
+                          },
+                          "byRef": false,
+                          "unpack": false
+                        }
+                      ],
+                      "shortForm": true
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": true
+              },
+              "byRef": false,
+              "unpack": false
+            }
+          ],
+          "shortForm": true
+        },
+        "operator": "="
+      }
+    }
+  ],
+  "errors": []
+}

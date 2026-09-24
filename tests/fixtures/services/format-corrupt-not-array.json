@@ -1,0 +1,24 @@
+{
+  "kind": "program",
+  "children": [
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "assign",
+        "left": {
+          "kind": "variable",
+          "name": "functions",
+          "curly": false
+        },
+        "right": {
+          "kind": "string",
+          "value": "corrupted_non_array_value",
+          "raw": "'corrupted_non_array_value'",
+          "unicode": false,
+          "isDoubleQuote": false
+        }
+      }
+    }
+  ],
+  "errors": []
+}

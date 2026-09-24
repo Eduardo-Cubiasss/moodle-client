@@ -1,0 +1,134 @@
+{
+  "kind": "program",
+  "children": [
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "assign",
+        "left": {
+          "kind": "variable",
+          "name": "functions",
+          "curly": false
+        },
+        "right": {
+          "kind": "array",
+          "items": [
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "core_course_get_contents",
+                "raw": "'core_course_get_contents'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "core_course_external",
+                      "raw": "'core_course_external'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "type",
+                      "raw": "'type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "custom_query_type",
+                      "raw": "'custom_query_type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "description",
+                      "raw": "'description'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "nullkeyword",
+                      "raw": "null",
+                      "name": "null"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": true
+              },
+              "byRef": false,
+              "unpack": false
+            },
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "core_minimal_service",
+                "raw": "'core_minimal_service'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "core_minimal_external",
+                      "raw": "'core_minimal_external'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": true
+              },
+              "byRef": false,
+              "unpack": false
+            }
+          ],
+          "shortForm": true
+        },
+        "operator": "="
+      }
+    }
+  ],
+  "errors": []
+}

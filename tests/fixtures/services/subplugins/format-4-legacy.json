@@ -1,0 +1,611 @@
+{
+  "kind": "program",
+  "children": [
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "assign",
+        "left": {
+          "kind": "variable",
+          "name": "functions",
+          "curly": false
+        },
+        "right": {
+          "kind": "array",
+          "items": [
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "message_airnotifier_is_system_configured",
+                "raw": "'message_airnotifier_is_system_configured'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "message_airnotifier_external",
+                      "raw": "'message_airnotifier_external'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "methodname",
+                      "raw": "'methodname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "is_system_configured",
+                      "raw": "'is_system_configured'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classpath",
+                      "raw": "'classpath'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "message/output/airnotifier/externallib.php",
+                      "raw": "'message/output/airnotifier/externallib.php'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "description",
+                      "raw": "'description'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "Check whether the airnotifier settings have been configured",
+                      "raw": "'Check whether the airnotifier settings have been configured'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "type",
+                      "raw": "'type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "read",
+                      "raw": "'read'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "services",
+                      "raw": "'services'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "array",
+                      "items": [
+                        {
+                          "kind": "entry",
+                          "key": null,
+                          "value": {
+                            "kind": "name",
+                            "name": "MOODLE_OFFICIAL_MOBILE_SERVICE",
+                            "resolution": "uqn"
+                          },
+                          "byRef": false,
+                          "unpack": false
+                        }
+                      ],
+                      "shortForm": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": false
+              },
+              "byRef": false,
+              "unpack": false
+            },
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "message_airnotifier_are_notification_preferences_configured",
+                "raw": "'message_airnotifier_are_notification_preferences_configured'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "message_airnotifier_external",
+                      "raw": "'message_airnotifier_external'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "methodname",
+                      "raw": "'methodname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "are_notification_preferences_configured",
+                      "raw": "'are_notification_preferences_configured'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classpath",
+                      "raw": "'classpath'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "message/output/airnotifier/externallib.php",
+                      "raw": "'message/output/airnotifier/externallib.php'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "description",
+                      "raw": "'description'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "Check if the users have notification preferences configured yet",
+                      "raw": "'Check if the users have notification preferences configured yet'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "type",
+                      "raw": "'type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "read",
+                      "raw": "'read'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "services",
+                      "raw": "'services'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "array",
+                      "items": [
+                        {
+                          "kind": "entry",
+                          "key": null,
+                          "value": {
+                            "kind": "name",
+                            "name": "MOODLE_OFFICIAL_MOBILE_SERVICE",
+                            "resolution": "uqn"
+                          },
+                          "byRef": false,
+                          "unpack": false
+                        }
+                      ],
+                      "shortForm": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": false
+              },
+              "byRef": false,
+              "unpack": false
+            },
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "message_airnotifier_get_user_devices",
+                "raw": "'message_airnotifier_get_user_devices'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "message_airnotifier_external",
+                      "raw": "'message_airnotifier_external'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "methodname",
+                      "raw": "'methodname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "get_user_devices",
+                      "raw": "'get_user_devices'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classpath",
+                      "raw": "'classpath'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "message/output/airnotifier/externallib.php",
+                      "raw": "'message/output/airnotifier/externallib.php'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "description",
+                      "raw": "'description'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "Return the list of mobile devices that are registered in Moodle for the given user",
+                      "raw": "'Return the list of mobile devices that are registered in Moodle for the given user'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "type",
+                      "raw": "'type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "read",
+                      "raw": "'read'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "services",
+                      "raw": "'services'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "array",
+                      "items": [
+                        {
+                          "kind": "entry",
+                          "key": null,
+                          "value": {
+                            "kind": "name",
+                            "name": "MOODLE_OFFICIAL_MOBILE_SERVICE",
+                            "resolution": "uqn"
+                          },
+                          "byRef": false,
+                          "unpack": false
+                        }
+                      ],
+                      "shortForm": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": false
+              },
+              "byRef": false,
+              "unpack": false
+            },
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "message_airnotifier_enable_device",
+                "raw": "'message_airnotifier_enable_device'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "message_airnotifier_external",
+                      "raw": "'message_airnotifier_external'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "methodname",
+                      "raw": "'methodname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "enable_device",
+                      "raw": "'enable_device'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classpath",
+                      "raw": "'classpath'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "message/output/airnotifier/externallib.php",
+                      "raw": "'message/output/airnotifier/externallib.php'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "description",
+                      "raw": "'description'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "Enables or disables a registered user device so it can receive Push notifications",
+                      "raw": "'Enables or disables a registered user device so it can receive Push notifications'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "type",
+                      "raw": "'type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "write",
+                      "raw": "'write'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "capabilities",
+                      "raw": "'capabilities'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "message/airnotifier:managedevice",
+                      "raw": "'message/airnotifier:managedevice'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "services",
+                      "raw": "'services'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "array",
+                      "items": [
+                        {
+                          "kind": "entry",
+                          "key": null,
+                          "value": {
+                            "kind": "name",
+                            "name": "MOODLE_OFFICIAL_MOBILE_SERVICE",
+                            "resolution": "uqn"
+                          },
+                          "byRef": false,
+                          "unpack": false
+                        }
+                      ],
+                      "shortForm": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": false
+              },
+              "byRef": false,
+              "unpack": false
+            }
+          ],
+          "shortForm": false
+        },
+        "operator": "="
+      }
+    }
+  ],
+  "errors": []
+}
