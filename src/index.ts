@@ -17,3 +17,5 @@ export { InvalidRecord } from "./errors/invalid-record-error";
 export { InvalidToken } from "./errors/invalid-token-error";
 export { MoodleException } from "./errors/moodle-exception-error";
 export { URLError } from "./errors/url-error";
+
+export type * from "@didactika/moodle-client-schemas";

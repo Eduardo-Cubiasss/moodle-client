@@ -1,5 +1,0 @@
-{
-  "kind": "program",
-  "children": [],
-  "errors": []
-}

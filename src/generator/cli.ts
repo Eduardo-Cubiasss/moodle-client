@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runGeneratorPipeline } from "./generator-pipeline";
+import { runGeneratorPipeline } from "@didactika/moodle-client-schemas";
 
 async function main(): Promise<void> {
     const args = process.argv.slice(2);

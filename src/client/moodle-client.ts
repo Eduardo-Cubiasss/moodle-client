@@ -3,6 +3,9 @@ import { MoodleEndpoint } from "./moodle-endpoint";
 import { MoodleResponse } from "./moodle-response";
 import { RequestContent } from "./request-content";
 import { URLError } from "../errors/url-error";
+import type { GeneratedMoodleServices } from "@didactika/moodle-client-schemas";
+
+export interface MoodleClient extends GeneratedMoodleServices {}
 
 // fetch refuses to attach a body to these, and PHP would not read one into
 // $_GET anyway, so their parameters go in the query string instead.
