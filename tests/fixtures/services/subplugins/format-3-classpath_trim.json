@@ -1,0 +1,292 @@
+{
+  "kind": "program",
+  "children": [
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "bin",
+        "type": "||",
+        "left": {
+          "kind": "call",
+          "what": {
+            "kind": "name",
+            "name": "defined",
+            "resolution": "uqn"
+          },
+          "arguments": [
+            {
+              "kind": "string",
+              "value": "MOODLE_INTERNAL",
+              "raw": "'MOODLE_INTERNAL'",
+              "unicode": false,
+              "isDoubleQuote": false
+            }
+          ]
+        },
+        "right": {
+          "kind": "exit",
+          "expression": null,
+          "useDie": true
+        }
+      }
+    },
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "assign",
+        "left": {
+          "kind": "variable",
+          "name": "functions",
+          "curly": false
+        },
+        "right": {
+          "kind": "array",
+          "items": [
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "paygw_paypal_get_config_for_js",
+                "raw": "'paygw_paypal_get_config_for_js'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "paygw_paypal\\external\\get_config_for_js",
+                      "raw": "'paygw_paypal\\external\\get_config_for_js'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classpath",
+                      "raw": "'classpath'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "",
+                      "raw": "''",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "description",
+                      "raw": "'description'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "Returns the configuration settings to be used in js",
+                      "raw": "'Returns the configuration settings to be used in js'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "type",
+                      "raw": "'type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "read",
+                      "raw": "'read'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "ajax",
+                      "raw": "'ajax'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": true,
+                      "raw": "true"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": true
+              },
+              "byRef": false,
+              "unpack": false
+            },
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "paygw_paypal_create_transaction_complete",
+                "raw": "'paygw_paypal_create_transaction_complete'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "paygw_paypal\\external\\transaction_complete",
+                      "raw": "'paygw_paypal\\external\\transaction_complete'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classpath",
+                      "raw": "'classpath'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "",
+                      "raw": "''",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "description",
+                      "raw": "'description'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "Takes care of what needs to be done when a PayPal transaction comes back as complete.",
+                      "raw": "'Takes care of what needs to be done when a PayPal transaction comes back as complete.'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "type",
+                      "raw": "'type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "write",
+                      "raw": "'write'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "ajax",
+                      "raw": "'ajax'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": true,
+                      "raw": "true"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "loginrequired",
+                      "raw": "'loginrequired'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": false,
+                      "raw": "false"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": true
+              },
+              "byRef": false,
+              "unpack": false
+            }
+          ],
+          "shortForm": true
+        },
+        "operator": "="
+      }
+    }
+  ],
+  "errors": []
+}

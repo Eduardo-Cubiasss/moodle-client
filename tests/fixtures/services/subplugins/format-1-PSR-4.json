@@ -1,0 +1,437 @@
+{
+  "kind": "program",
+  "children": [
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "bin",
+        "type": "||",
+        "left": {
+          "kind": "call",
+          "what": {
+            "kind": "name",
+            "name": "defined",
+            "resolution": "uqn"
+          },
+          "arguments": [
+            {
+              "kind": "string",
+              "value": "MOODLE_INTERNAL",
+              "raw": "'MOODLE_INTERNAL'",
+              "unicode": false,
+              "isDoubleQuote": false
+            }
+          ]
+        },
+        "right": {
+          "kind": "exit",
+          "expression": null,
+          "useDie": true
+        }
+      }
+    },
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "assign",
+        "left": {
+          "kind": "variable",
+          "name": "functions",
+          "curly": false
+        },
+        "right": {
+          "kind": "array",
+          "items": [
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "tiny_autosave_resume_session",
+                "raw": "'tiny_autosave_resume_session'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "tiny_autosave\\external\\resume_autosave_session",
+                      "raw": "'tiny_autosave\\external\\resume_autosave_session'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "methodname",
+                      "raw": "'methodname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "execute",
+                      "raw": "'execute'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "description",
+                      "raw": "'description'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "Resume an autosave session",
+                      "raw": "'Resume an autosave session'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "type",
+                      "raw": "'type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "write",
+                      "raw": "'write'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "loginrequired",
+                      "raw": "'loginrequired'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": false,
+                      "raw": "false"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "ajax",
+                      "raw": "'ajax'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": true,
+                      "raw": "true"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": false
+              },
+              "byRef": false,
+              "unpack": false
+            },
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "tiny_autosave_reset_session",
+                "raw": "'tiny_autosave_reset_session'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "tiny_autosave\\external\\reset_autosave_session",
+                      "raw": "'tiny_autosave\\external\\reset_autosave_session'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "methodname",
+                      "raw": "'methodname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "execute",
+                      "raw": "'execute'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "description",
+                      "raw": "'description'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "Reset an autosave session",
+                      "raw": "'Reset an autosave session'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "type",
+                      "raw": "'type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "write",
+                      "raw": "'write'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "loginrequired",
+                      "raw": "'loginrequired'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": false,
+                      "raw": "false"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "ajax",
+                      "raw": "'ajax'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": true,
+                      "raw": "true"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": false
+              },
+              "byRef": false,
+              "unpack": false
+            },
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "tiny_autosave_update_session",
+                "raw": "'tiny_autosave_update_session'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "tiny_autosave\\external\\update_autosave_session_content",
+                      "raw": "'tiny_autosave\\external\\update_autosave_session_content'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "methodname",
+                      "raw": "'methodname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "execute",
+                      "raw": "'execute'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "description",
+                      "raw": "'description'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "Update an autosave session",
+                      "raw": "'Update an autosave session'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "type",
+                      "raw": "'type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "write",
+                      "raw": "'write'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "loginrequired",
+                      "raw": "'loginrequired'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": false,
+                      "raw": "false"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "ajax",
+                      "raw": "'ajax'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": true,
+                      "raw": "true"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": false
+              },
+              "byRef": false,
+              "unpack": false
+            }
+          ],
+          "shortForm": true
+        },
+        "operator": "="
+      }
+    }
+  ],
+  "errors": []
+}

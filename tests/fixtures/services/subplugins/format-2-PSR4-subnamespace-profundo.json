@@ -1,0 +1,248 @@
+{
+  "kind": "program",
+  "children": [
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "bin",
+        "type": "||",
+        "left": {
+          "kind": "call",
+          "what": {
+            "kind": "name",
+            "name": "defined",
+            "resolution": "uqn"
+          },
+          "arguments": [
+            {
+              "kind": "string",
+              "value": "MOODLE_INTERNAL",
+              "raw": "'MOODLE_INTERNAL'",
+              "unicode": false,
+              "isDoubleQuote": false
+            }
+          ]
+        },
+        "right": {
+          "kind": "exit",
+          "expression": null,
+          "useDie": true
+        }
+      }
+    },
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "assign",
+        "left": {
+          "kind": "variable",
+          "name": "functions",
+          "curly": false
+        },
+        "right": {
+          "kind": "array",
+          "items": [
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "gradingform_rubric_grader_gradingpanel_fetch",
+                "raw": "'gradingform_rubric_grader_gradingpanel_fetch'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "gradingform_rubric\\grades\\grader\\gradingpanel\\external\\fetch",
+                      "raw": "'gradingform_rubric\\\\grades\\\\grader\\\\gradingpanel\\\\external\\\\fetch'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "description",
+                      "raw": "'description'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "bin",
+                      "type": ".",
+                      "left": {
+                        "kind": "string",
+                        "value": "Fetch the data required to display the grader grading panel, ",
+                        "raw": "'Fetch the data required to display the grader grading panel, '",
+                        "unicode": false,
+                        "isDoubleQuote": false
+                      },
+                      "right": {
+                        "kind": "string",
+                        "value": "creating the grade item if required",
+                        "raw": "'creating the grade item if required'",
+                        "unicode": false,
+                        "isDoubleQuote": false
+                      }
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "type",
+                      "raw": "'type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "write",
+                      "raw": "'write'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "ajax",
+                      "raw": "'ajax'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": true,
+                      "raw": "true"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": true
+              },
+              "byRef": false,
+              "unpack": false
+            },
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "gradingform_rubric_grader_gradingpanel_store",
+                "raw": "'gradingform_rubric_grader_gradingpanel_store'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "array",
+                "items": [
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "classname",
+                      "raw": "'classname'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "gradingform_rubric\\grades\\grader\\gradingpanel\\external\\store",
+                      "raw": "'gradingform_rubric\\\\grades\\\\grader\\\\gradingpanel\\\\external\\\\store'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "description",
+                      "raw": "'description'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "Store the grading data for a user from the grader grading panel.",
+                      "raw": "'Store the grading data for a user from the grader grading panel.'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "type",
+                      "raw": "'type'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "string",
+                      "value": "write",
+                      "raw": "'write'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  },
+                  {
+                    "kind": "entry",
+                    "key": {
+                      "kind": "string",
+                      "value": "ajax",
+                      "raw": "'ajax'",
+                      "unicode": false,
+                      "isDoubleQuote": false
+                    },
+                    "value": {
+                      "kind": "boolean",
+                      "value": true,
+                      "raw": "true"
+                    },
+                    "byRef": false,
+                    "unpack": false
+                  }
+                ],
+                "shortForm": true
+              },
+              "byRef": false,
+              "unpack": false
+            }
+          ],
+          "shortForm": true
+        },
+        "operator": "="
+      }
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,42 @@
+{
+  "kind": "program",
+  "children": [
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "assign",
+        "left": {
+          "kind": "variable",
+          "name": "functions",
+          "curly": false
+        },
+        "right": {
+          "kind": "array",
+          "items": [
+            {
+              "kind": "entry",
+              "key": {
+                "kind": "string",
+                "value": "corrupted_entry_service",
+                "raw": "'corrupted_entry_service'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "value": {
+                "kind": "string",
+                "value": "invalid_entry_definition",
+                "raw": "'invalid_entry_definition'",
+                "unicode": false,
+                "isDoubleQuote": false
+              },
+              "byRef": false,
+              "unpack": false
+            }
+          ],
+          "shortForm": false
+        }
+      }
+    }
+  ],
+  "errors": []
+}

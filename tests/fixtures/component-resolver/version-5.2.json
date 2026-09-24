@@ -1,0 +1,106 @@
+{
+  "kind": "program",
+  "children": [
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "bin",
+        "type": "||",
+        "left": {
+          "kind": "call",
+          "what": {
+            "kind": "name",
+            "name": "defined",
+            "resolution": "uqn"
+          },
+          "arguments": [
+            {
+              "kind": "string",
+              "value": "MOODLE_INTERNAL",
+              "raw": "'MOODLE_INTERNAL'",
+              "unicode": false,
+              "isDoubleQuote": false
+            }
+          ]
+        },
+        "right": {
+          "kind": "exit",
+          "expression": null,
+          "useDie": true
+        }
+      }
+    },
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "assign",
+        "left": {
+          "kind": "variable",
+          "name": "version",
+          "curly": false
+        },
+        "right": {
+          "kind": "number",
+          "value": "2026042002.00"
+        },
+        "operator": "="
+      }
+    },
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "assign",
+        "left": {
+          "kind": "variable",
+          "name": "release",
+          "curly": false
+        },
+        "right": {
+          "kind": "string",
+          "value": "5.2.2 (Build: 20260810)",
+          "raw": "'5.2.2 (Build: 20260810)'",
+          "unicode": false,
+          "isDoubleQuote": false
+        },
+        "operator": "="
+      }
+    },
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "assign",
+        "left": {
+          "kind": "variable",
+          "name": "branch",
+          "curly": false
+        },
+        "right": {
+          "kind": "string",
+          "value": "502",
+          "raw": "'502'",
+          "unicode": false,
+          "isDoubleQuote": false
+        },
+        "operator": "="
+      }
+    },
+    {
+      "kind": "expressionstatement",
+      "expression": {
+        "kind": "assign",
+        "left": {
+          "kind": "variable",
+          "name": "maturity",
+          "curly": false
+        },
+        "right": {
+          "kind": "name",
+          "name": "MATURITY_STABLE",
+          "resolution": "uqn"
+        },
+        "operator": "="
+      }
+    }
+  ],
+  "errors": []
+}
