@@ -26,6 +26,14 @@ describe("Config Manager", () => {
             expect(normalizeMoodleVersion("5.0")).toBe("5.0");
             expect(normalizeMoodleVersion("3.11.18")).toBe("3.11");
         });
+
+        it("should parse 5.2.x, 5.2.X, v5.2.x, and 5.2.1 to 5.2", () => {
+            expect(normalizeMoodleVersion("5.2.x")).toBe("5.2");
+            expect(normalizeMoodleVersion("5.2.X")).toBe("5.2");
+            expect(normalizeMoodleVersion("v5.2.x")).toBe("5.2");
+            expect(normalizeMoodleVersion("5.2.1")).toBe("5.2");
+            expect(normalizeMoodleVersion("5.2")).toBe("5.2");
+        });
     });
 
     describe("loadOrCreateConfig", () => {
@@ -84,9 +92,22 @@ describe("Config Manager", () => {
 
             expect(loaded.version).toBe("4.5");
             expect(loaded.moodlePath).toBeUndefined();
-            expect(loaded.isLocal).toBe(false);
-            expect(loaded.webservices).toEqual(["core_webservice_get_site_info"]);
-            expect(loaded.outDir).toBe("./moodle-schemas"); // default fallback
+            expect(loaded.outDir).toBeUndefined(); // optional when moodlePath is omitted
+        });
+
+        it("should throw a descriptive configuration error with suggestion when moodlePath is defined but outDir is missing", async () => {
+            const configFilePath = path.join(tempDir, DEFAULT_CONFIG_FILENAME);
+            const invalidConfig = {
+                version: "4.5",
+                moodlePath: "/var/www/moodle",
+                webservices: ["core_*"]
+            };
+
+            await fs.writeFile(configFilePath, JSON.stringify(invalidConfig, null, 2), "utf-8");
+
+            await expect(loadOrCreateConfig(configFilePath)).rejects.toThrow(
+                /'outDir' is required in 'moodle-client.config.json' when 'moodlePath' is defined/
+            );
         });
     });
 });

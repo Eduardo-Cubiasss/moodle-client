@@ -2,6 +2,44 @@ import { toFullPascalCase } from "../resolver/path-resolver";
 import { GeneratedServiceMetadata } from "../interfaces/generator.interfaces";
 
 /**
+ * Formats a multi-line JSDoc block for a generated webservice method.
+ *
+ * @param {GeneratedServiceMetadata} service - Service metadata
+ * @param {string} pascalName - PascalCase name of the webservice
+ * @returns {string[]} Array of lines for the JSDoc comment
+ */
+function formatMethodJsDoc(service: GeneratedServiceMetadata, pascalName: string): string[] {
+    const docLines: string[] = [];
+    docLines.push("    /**");
+
+    if (service.description && service.description.trim().length > 0) {
+        const descLines = service.description.trim().split("\n");
+        for (const dl of descLines) {
+            docLines.push(`     * ${dl.trim()}`);
+        }
+        docLines.push("     *");
+    }
+
+    const paramTag = service.hasRequiredParams
+        ? `     * @param {${pascalName}Params} params`
+        : `     * @param {${pascalName}Params} [params]`;
+    const paramDesc = service.paramsDescription && service.paramsDescription.trim().length > 0
+        ? ` - ${service.paramsDescription.replace(/\n/g, " ").trim()}`
+        : "";
+    docLines.push(`${paramTag}${paramDesc}`);
+
+    docLines.push("     * @param {HttpMethod} [method] - Optional HTTP method override ('GET' | 'POST')");
+
+    const returnDesc = service.returnsDescription && service.returnsDescription.trim().length > 0
+        ? ` - ${service.returnsDescription.replace(/\n/g, " ").trim()}`
+        : "";
+    docLines.push(`     * @returns {Promise<MoodleResponse<${pascalName}Returns>>}${returnDesc}`);
+
+    docLines.push("     */");
+    return docLines;
+}
+
+/**
  * Emits central barrel file (index.ts) that re-exports all generated webservice types
  * and injects them into MoodleClient via TypeScript declaration merging.
  *
@@ -38,9 +76,7 @@ export function emitBarrelCode(services: GeneratedServiceMetadata[]): string {
 
     for (const service of services) {
         const pascal = toFullPascalCase(service.name);
-        if (service.description) {
-            lines.push(`    /** ${service.description.replace(/\n/g, " ")} */`);
-        }
+        lines.push(...formatMethodJsDoc(service, pascal));
         const optParam = service.hasRequiredParams ? "" : "?";
         lines.push(
             `    ${service.name}(params${optParam}: ${pascal}Params, method?: HttpMethod): Promise<MoodleResponse<${pascal}Returns>>;`

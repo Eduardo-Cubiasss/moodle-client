@@ -36,12 +36,12 @@ export function resolveWebserviceFilePath(webserviceName: string): string {
         const category = parts[0];
         const subcategory = parts[1];
         const action = parts.slice(2).join("_");
-        return `${category}/${subcategory}/${action}.webservice-client.ts`;
+        return `${category}/${subcategory}/${action}.webservice-client.d.ts`;
     }
 
     if (parts.length === 2) {
-        return `${parts[0]}/${parts[1]}.webservice-client.ts`;
+        return `${parts[0]}/${parts[1]}.webservice-client.d.ts`;
     }
 
-    return `${webserviceName}.webservice-client.ts`;
+    return `${webserviceName}.webservice-client.d.ts`;
 }

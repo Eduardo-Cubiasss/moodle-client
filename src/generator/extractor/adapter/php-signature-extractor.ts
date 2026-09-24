@@ -35,13 +35,14 @@ function findExistingCandidate(candidates: string[]): string | null {
  */
 export function getCliExecutorPath(): string {
     const candidates = [
-        path.resolve(__dirname, '../src/php-adapter/cli-executor.php'),
+        path.resolve(__dirname, 'php-adapter/cli-executor.php'),
+        path.resolve(__dirname, '../php-adapter/cli-executor.php'),
         path.resolve(__dirname, '../../php-adapter/cli-executor.php'),
-        path.resolve(__dirname, './src/php-adapter/cli-executor.php'),
-        path.resolve(__dirname, 'php-adapter/cli-executor.php')
+        path.resolve(__dirname, '../../src/generator/php-adapter/cli-executor.php')
     ];
     const found = findExistingCandidate(candidates);
-    return found ?? path.resolve(__dirname, '../src/php-adapter/cli-executor.php');
+    const defaultPath = path.resolve(__dirname, 'php-adapter/cli-executor.php');
+    return found ?? defaultPath;
 }
 
 /**

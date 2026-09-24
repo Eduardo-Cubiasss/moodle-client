@@ -41,10 +41,10 @@ describe("OutDir Cleanup and Regeneration", () => {
         await generateWebserviceFiles(initialSchemas, tempOutDir);
 
         // Comprobar que los 3 archivos existen
-        const courseFile = path.join(tempOutDir, "core/course/get_courses.webservice-client.ts");
-        const userFile = path.join(tempOutDir, "core/user/get_users.webservice-client.ts");
-        const quizFile = path.join(tempOutDir, "mod/quiz/get_user_attempts.webservice-client.ts");
-        const indexFile = path.join(tempOutDir, "index.ts");
+        const courseFile = path.join(tempOutDir, "core/course/get_courses.webservice-client.d.ts");
+        const userFile = path.join(tempOutDir, "core/user/get_users.webservice-client.d.ts");
+        const quizFile = path.join(tempOutDir, "mod/quiz/get_user_attempts.webservice-client.d.ts");
+        const indexFile = path.join(tempOutDir, "index.d.ts");
 
         expect(await fs.access(courseFile).then(() => true).catch(() => false)).toBe(true);
         expect(await fs.access(userFile).then(() => true).catch(() => false)).toBe(true);
@@ -68,7 +68,7 @@ describe("OutDir Cleanup and Regeneration", () => {
         expect(await fs.access(userFile).then(() => true).catch(() => false)).toBe(false); // Eliminado!
         expect(await fs.access(quizFile).then(() => true).catch(() => false)).toBe(false); // Eliminado!
 
-        // El index.ts debe contener únicamente el servicio conservado
+        // El index.d.ts debe contener únicamente el servicio conservado
         const indexContent = await fs.readFile(indexFile, "utf-8");
         expect(indexContent).toContain("core_course_get_courses");
         expect(indexContent).not.toContain("core_user_get_users");
