@@ -1,21 +1,19 @@
 #!/usr/bin/env node
-import { runGeneratorPipeline } from "@didactika/moodle-client-schemas";
+import { runGeneratorWithProgress } from "@didactika/moodle-client-schemas";
+
+function parseConfigPath(args: string[]): string | undefined {
+    const idx = args.indexOf("--config");
+    if (idx !== -1) {
+        return args[idx + 1];
+    }
+    return undefined;
+}
 
 async function main(): Promise<void> {
-    const args = process.argv.slice(2);
-    let configPath: string | undefined;
-    for (let i = 0; i < args.length; i++) {
-        if (args[i] === "--config" && args[i + 1]) {
-            configPath = args[i + 1];
-            i++;
-        }
-    }
-    console.log("[moodle-client] Starting web service generation...");
+    const configPath = parseConfigPath(process.argv.slice(2));
     try {
-        await runGeneratorPipeline(configPath);
-        console.log("[moodle-client] Web services generated successfully.");
-    } catch (error: any) {
-        console.error("[moodle-client] Error:", error?.message || error);
+        await runGeneratorWithProgress(configPath);
+    } catch {
         process.exit(1);
     }
 }
