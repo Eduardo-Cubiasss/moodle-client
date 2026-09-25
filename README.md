@@ -40,6 +40,12 @@ const moodle = new MoodleClient({
   token: process.env.MOODLE_TOKEN!,
 });
 
+// Call the web service using the strongly-typed generated method:
+const { data: courses } = await moodle.core_course_get_courses({
+  options: { ids: [1, 2, 3] },
+});
+
+// Or call it dynamically via .call():
 const { data } = await moodle.call("core_course_get_courses", {
   options: { ids: [1, 2, 3] },
 });
@@ -180,7 +186,49 @@ moodle-schemas/
 └── index.ts
 ```
 
-### Errors
+### 5. Schema Generation Errors & Troubleshooting
+
+When executing `npm run moodle:generate-webservices` (or `npx moodle-client`), all errors during configuration loading, codebase extraction, and code generation are reported as clean, structured diagnostic blocks without raw stack traces:
+
+```text
+[moodle-client] ERROR: <Title> (<CODE>)
+Details: <Clear description of the issue>
+Action:  <Exact action required to resolve it>
+```
+
+#### Configuration & Filesystem Errors (moodle-client context)
+
+These errors occur directly when parsing configuration files or writing generated output:
+
+| Error Code | Title | Details & Recommended Action |
+|---|---|---|
+| `ERR_CONFIG_INVALID_JSON` | Invalid Configuration File | `moodle-client.config.json` contains malformed JSON. Fix syntax errors or delete the file to regenerate a clean default. |
+| `ERR_CONFIG_MISSING_OUTDIR_LOCAL` | Missing outDir in Local Mode | When `moodlePath` is defined, `outDir` is required to avoid overwriting internal schemas. Add `"outDir": "./moodle-schemas"` to `moodle-client.config.json`. |
+| `ERR_CONFIG_FILE_NOT_FOUND` | Configuration File Not Found | The custom file passed via `--config <path>` does not exist on disk. Verify the path or omit `--config`. |
+| `ERR_MOODLE_VERSION_UNSUPPORTED` | Unsupported Moodle Version | Configured Moodle version is lower than 2.0. Web services schema generation requires Moodle 2.0 or higher. Set `"version"` to a supported version (e.g. `"4.5"`). |
+| `ERR_WRITE_PERMISSION_DENIED` | Write Permission Denied | Permission denied when creating directories or writing schema files to `outDir`. Check user permissions on the output folder. |
+
+#### Schema Generator Errors (Engine Context)
+
+The generator delegates introspection and AST extraction to `@didactika/moodle-client-schemas`. Errors originating from the generator engine are caught and formatted consistently:
+
+| Error Code | Title | Details & Recommended Action |
+|---|---|---|
+| `ERR_PHP_NOT_FOUND` | PHP CLI Not Found | The `php` binary was not found in system `PATH`. Install PHP 7.4 or higher. |
+| `ERR_PHP_VERSION_UNSUPPORTED` | Unsupported PHP Version | Detected PHP version is `< 7.4`. Upgrade your PHP CLI installation to PHP 7.4+. |
+| `ERR_NETWORK_DISCONNECTED` | Network Disconnected | Failed to reach GitHub to download Moodle repository archive (DNS resolution failed or connection timeout). Check internet connection or use a local instance with `moodlePath`. |
+| `ERR_ARCHIVE_EXTRACTION_FAILED` | Archive Extraction Failed | Downloaded tarball archive could not be unpacked (corrupted stream or extraction failure). Check network stability and disk space. |
+| `ERR_GIT_NOT_FOUND` | Git Executable Not Found | Archive download failed and Git is not installed in `PATH` to perform fallback shallow clone. Install Git or restore network connectivity. |
+| `ERR_MOODLE_PATH_NOT_FOUND` | Moodle Path Not Found | The path in `moodlePath` does not exist on disk. Check that the path is spelled correctly. |
+| `ERR_MOODLE_PATH_NOT_ROOT` | Invalid Moodle Root Directory | The directory in `moodlePath` has no `version.php` at its root (nor under `public/`). Point `moodlePath` directly to the Moodle installation root. |
+| `ERR_MOODLE_PATH_MULTIPLE_INSTANCES` | Multiple Moodle Instances Detected | The directory contains multiple Moodle installations in subdirectories. Specify the exact subdirectory of the desired instance in `moodlePath`. |
+| `ERR_MOODLE_PATH_PERMISSION_DENIED` | Moodle Path Permission Denied | Permission denied when reading the local Moodle codebase. Check read permissions for the current user. |
+| `ERR_NO_SERVICES_FOUND` | No Web Services Found | Scanned codebase contains no `db/services.php` files. Verify that the Moodle installation is complete. |
+| `ERR_SERVICE_NOT_FOUND` | Web Service Not Found | A pattern in `webservices` array did not match any declared web service. Verify service names in `moodle-client.config.json`. |
+| `ERR_CLASS_NOT_FOUND` | Web Service Class Not Found | The PHP class declaring the external function could not be resolved on disk. Ensure all plugin files are present. |
+| `ERR_INTROSPECTION_FAILED` | Web Service Introspection Failed | PHP reflection threw a fatal error or uncaught exception while executing `_parameters()` or `_returns()`. Check PHP syntax and runtime dependencies in the external class. |
+
+## Runtime HTTP Errors
 
 A failed call throws. Each Moodle error code has its own class, so
 `instanceof` is enough to route them:
