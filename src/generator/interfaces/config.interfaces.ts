@@ -6,6 +6,8 @@ export interface MoodleClientConfig {
     version: string;
     /** List of webservice patterns or exact names to include */
     webservices: string[];
+    /** Optional output directory path for generated webservice client files */
+    outDir?: string;
     /** Local filesystem path to Moodle codebase (if present, isLocal is true) */
     moodlePath?: string;
     /** Concurrency limit for extraction */
@@ -22,6 +24,6 @@ export interface RawMoodleClientConfig {
     webservices?: string[];
     moodlePath?: string;
     concurrency?: number;
-    // outDir is accepted for backwards compatibility with existing config files, but ignored
+    /** Optional output directory path for generated webservice client files. Required when moodlePath is defined. */
     outDir?: string;
 }

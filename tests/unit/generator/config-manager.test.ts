@@ -47,7 +47,7 @@ describe("ConfigManager", () => {
         expect(fileContent.webservices).toEqual(["*"]);
     });
 
-    it("should load existing config without demanding outDir in local mode", async () => {
+    it("should throw ERR_CONFIG_MISSING_OUTDIR_LOCAL when moodlePath is defined without outDir", async () => {
         const configPath = path.join(tempDir, DEFAULT_CONFIG_FILENAME);
         const mockLocalMoodle = path.join(tempDir, "local-moodle");
         await fs.mkdir(mockLocalMoodle, { recursive: true });
@@ -59,11 +59,59 @@ describe("ConfigManager", () => {
         };
         await fs.writeFile(configPath, JSON.stringify(customConfig), "utf-8");
 
+        await expect(loadOrCreateConfig(configPath)).rejects.toThrowError(
+            /Missing outDir in Local Mode/
+        );
+    });
+
+    it("should load existing config with moodlePath and outDir in local mode", async () => {
+        const configPath = path.join(tempDir, DEFAULT_CONFIG_FILENAME);
+        const mockLocalMoodle = path.join(tempDir, "local-moodle");
+        await fs.mkdir(mockLocalMoodle, { recursive: true });
+
+        const customConfig = {
+            version: "4.4",
+            moodlePath: mockLocalMoodle,
+            outDir: "./custom-schemas",
+            webservices: ["core_course_get_courses"],
+        };
+        await fs.writeFile(configPath, JSON.stringify(customConfig), "utf-8");
+
         const loaded = await loadOrCreateConfig(configPath);
         expect(loaded.version).toBe("4.4");
         expect(loaded.isLocal).toBe(true);
         expect(loaded.moodlePath).toBe(mockLocalMoodle);
+        expect(loaded.outDir).toBe("./custom-schemas");
         expect(loaded.webservices).toEqual(["core_course_get_courses"]);
+    });
+
+    it("should load existing config without outDir in remote mode", async () => {
+        const configPath = path.join(tempDir, DEFAULT_CONFIG_FILENAME);
+        const customConfig = {
+            version: "4.5",
+            webservices: ["core_course_get_courses"],
+        };
+        await fs.writeFile(configPath, JSON.stringify(customConfig), "utf-8");
+
+        const loaded = await loadOrCreateConfig(configPath);
+        expect(loaded.version).toBe("4.5");
+        expect(loaded.isLocal).toBe(false);
+        expect(loaded.outDir).toBeUndefined();
+    });
+
+    it("should load existing config with outDir in remote mode", async () => {
+        const configPath = path.join(tempDir, DEFAULT_CONFIG_FILENAME);
+        const customConfig = {
+            version: "4.5",
+            outDir: "./remote-schemas",
+            webservices: ["core_course_get_courses"],
+        };
+        await fs.writeFile(configPath, JSON.stringify(customConfig), "utf-8");
+
+        const loaded = await loadOrCreateConfig(configPath);
+        expect(loaded.version).toBe("4.5");
+        expect(loaded.isLocal).toBe(false);
+        expect(loaded.outDir).toBe("./remote-schemas");
     });
 
     it("should throw on invalid JSON", async () => {
