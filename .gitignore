@@ -5,4 +5,5 @@ coverage/
 *.log
 tmp/
 .idea/
-src/schemas/
+src/schemas/*
+!src/schemas/index.ts

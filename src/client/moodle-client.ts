@@ -3,7 +3,7 @@ import { MoodleEndpoint } from "./moodle-endpoint";
 import { MoodleResponse } from "./moodle-response";
 import { RequestContent } from "./request-content";
 import { URLError } from "../errors/url-error";
-import type { GeneratedMoodleServices } from "@didactika/moodle-client-schemas";
+import type { GeneratedMoodleServices } from "../schemas/index";
 
 export interface MoodleClient extends GeneratedMoodleServices {}
 
