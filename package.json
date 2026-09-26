@@ -25,7 +25,7 @@
     "node": ">=20"
   },
   "bin": {
-    "moodle-client:generate-schemas": "dist/generator/cli.js"
+    "moodle-generate-schemas": "dist/generator/cli.js"
   },
   "scripts": {
     "clean": "rimraf dist",
@@ -40,7 +40,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/didactika/moodle-client.git"
+    "url": "git+https://github.com/didactika/moodle-client.git"
   },
   "keywords": [
     "moodle",

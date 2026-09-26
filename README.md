@@ -96,13 +96,13 @@ Instead of typing responses by hand, you can generate strongly-typed methods, in
 Run the generator command:
 
 ```console
-npx moodle-client:generate-schemas
+npx moodle-generate-schemas
 ```
 
 Or specify a custom configuration file:
 
 ```console
-npx moodle-client:generate-schemas --config path/to/custom-config.json
+npx moodle-generate-schemas --config path/to/custom-config.json
 ```
 
 If no configuration file exists, the command automatically creates `moodle-client.config.json` with the latest official Moodle version and generates all available webservices.
@@ -186,7 +186,7 @@ moodle-schemas/
 
 ### 5. Schema Generation Errors & Troubleshooting
 
-When executing `npx moodle-client:generate-schemas`, all errors during configuration loading, codebase extraction, and code generation are reported as clean, structured diagnostic blocks without raw stack traces:
+When executing `npx moodle-generate-schemas`, all errors during configuration loading, codebase extraction, and code generation are reported as clean, structured diagnostic blocks without raw stack traces:
 
 ```text
 [moodle-client] ERROR: <Title> (<CODE>)
