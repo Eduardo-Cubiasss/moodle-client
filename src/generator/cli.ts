@@ -15,7 +15,7 @@ export function parseCliArgs(args: string[]): CliOptions {
         if (!arg) {
             continue;
         }
-        if (arg === "-f" || arg === "--force") {
+        if (arg === "--f" || arg === "-f" || arg === "--force") {
             force = true;
         } else if (arg === "--config" && i + 1 < args.length) {
             configPath = args[i + 1];
