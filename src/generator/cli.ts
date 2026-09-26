@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runGeneratorWithProgress } from "@didactika/moodle-client-schemas";
+import { runGeneratorWithProgress } from "./ui/progress-bar";
 
 function parseConfigPath(args: string[]): string | undefined {
     const idx = args.indexOf("--config");

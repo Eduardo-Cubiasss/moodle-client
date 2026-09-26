@@ -1,0 +1,94 @@
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import fs from "fs/promises";
+import path from "path";
+import os from "os";
+import * as configManager from "../../../src/generator/config/config-manager";
+import * as downloader from "../../../src/generator/downloader/moodle-downloader";
+import * as schemasLib from "@didactika/moodle-client-schemas";
+import { runGenerator } from "../../../src/generator/runner";
+
+describe("Runner Orchestration", () => {
+    let tempDir: string;
+    let mockPkgDir: string;
+
+    beforeEach(async () => {
+        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "moodle-runner-test-"));
+        mockPkgDir = path.join(tempDir, "pkg");
+        await fs.mkdir(path.join(mockPkgDir, "dist"), { recursive: true });
+        await fs.writeFile(
+            path.join(mockPkgDir, "package.json"),
+            JSON.stringify({ name: "@didactika/moodle-client", version: "2.1.0" }),
+            "utf-8"
+        );
+        vi.restoreAllMocks();
+    });
+
+    afterEach(async () => {
+        await fs.rm(tempDir, { recursive: true, force: true });
+    });
+
+    it("should coordinate download, extraction, and generation directly into client package", async () => {
+        const fakeConfig: configManager.MoodleClientConfig = {
+            version: "4.5",
+            webservices: ["core_course_get_courses"],
+            isLocal: false,
+        };
+
+        vi.spyOn(configManager, "loadOrCreateConfig").mockResolvedValue(fakeConfig);
+        const cloneSpy = vi
+            .spyOn(downloader, "cloneMoodleVersion")
+            .mockResolvedValue(path.join(tempDir, "fake-moodle"));
+        const cleanupSpy = vi.spyOn(downloader, "cleanupMoodleDirectory").mockResolvedValue();
+
+        const fakeSchemas = [
+            {
+                name: "core_course_get_courses",
+                description: "Get courses",
+                parameters: { kind: "parameters", keys: {} },
+                returns: { kind: "value", type: "PARAM_INT", primitiveType: "number" },
+            },
+        ];
+
+        const extractSpy = vi.spyOn(schemasLib, "extractWebservice").mockResolvedValue({
+            schemas: fakeSchemas as any,
+            errors: [],
+        });
+
+        // Set cwd to tempDir where node_modules has the mock package
+        const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+        await fs.mkdir(path.join(nodeModulesDir, "dist"), { recursive: true });
+        await fs.writeFile(
+            path.join(nodeModulesDir, "package.json"),
+            JSON.stringify({ name: "@didactika/moodle-client" }),
+            "utf-8"
+        );
+        await fs.writeFile(path.join(nodeModulesDir, "dist/index.d.ts"), "// index\n", "utf-8");
+
+        const originalCwd = process.cwd();
+        try {
+            process.chdir(tempDir);
+            await runGenerator(undefined, { silent: true });
+        } finally {
+            process.chdir(originalCwd);
+        }
+
+        expect(cloneSpy).toHaveBeenCalledWith("4.5", expect.any(String));
+        expect(extractSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                services: ["core_course_get_courses"],
+            })
+        );
+        expect(cleanupSpy).toHaveBeenCalled();
+
+        // Verify schemas were generated inside node_modules/@didactika/moodle-client/dist/schemas
+        const targetSchemasDir = path.join(nodeModulesDir, "dist/schemas");
+        const courseFile = path.join(targetSchemasDir, "core/course/get_courses.webservice-client.d.ts");
+        const indexFile = path.join(targetSchemasDir, "index.d.ts");
+        expect(await fs.access(courseFile).then(() => true).catch(() => false)).toBe(true);
+        expect(await fs.access(indexFile).then(() => true).catch(() => false)).toBe(true);
+
+        // Verify declaration exports were ensured in dist/index.d.ts
+        const indexDtsContent = await fs.readFile(path.join(nodeModulesDir, "dist/index.d.ts"), "utf-8");
+        expect(indexDtsContent).toContain('export * from "./schemas/index"');
+    });
+});
