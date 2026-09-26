@@ -74,7 +74,7 @@
   },
   "homepage": "https://github.com/didactika/moodle-client#readme",
   "dependencies": {
-    "@didactika/moodle-client-schemas": "^0.2.0",
+    "@didactika/moodle-client-schemas": "^0.2.1",
     "tar": "^7.5.22"
   }
 }
