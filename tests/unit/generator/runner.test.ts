@@ -4,8 +4,16 @@ import path from "path";
 import os from "os";
 import * as configManager from "../../../src/generator/config/config-manager";
 import * as downloader from "../../../src/generator/downloader/moodle-downloader";
-import * as schemasLib from "@didactika/moodle-client-schemas";
+import { extractWebservice } from "@didactika/moodle-client-schemas";
 import { runGenerator } from "../../../src/generator/runner";
+
+vi.mock("@didactika/moodle-client-schemas", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("@didactika/moodle-client-schemas")>();
+    return {
+        ...actual,
+        extractWebservice: vi.fn(),
+    };
+});
 
 describe("Runner Orchestration", () => {
     let tempDir: string;
@@ -49,7 +57,7 @@ describe("Runner Orchestration", () => {
             },
         ];
 
-        const extractSpy = vi.spyOn(schemasLib, "extractWebservice").mockResolvedValue({
+        vi.mocked(extractWebservice).mockResolvedValue({
             schemas: fakeSchemas as any,
             errors: [],
         });
@@ -73,7 +81,7 @@ describe("Runner Orchestration", () => {
         }
 
         expect(cloneSpy).toHaveBeenCalledWith("4.5", expect.any(String));
-        expect(extractSpy).toHaveBeenCalledWith(
+        expect(extractWebservice).toHaveBeenCalledWith(
             expect.objectContaining({
                 services: ["core_course_get_courses"],
             })

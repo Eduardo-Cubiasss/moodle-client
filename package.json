@@ -25,7 +25,7 @@
     "node": ">=20"
   },
   "bin": {
-    "moodle-client": "dist/generator/cli.js"
+    "moodle-client:generate-schemas": "dist/generator/cli.js"
   },
   "scripts": {
     "clean": "rimraf dist",
