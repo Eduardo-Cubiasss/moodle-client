@@ -7,3 +7,4 @@ tmp/
 .idea/
 src/schemas/*
 !src/schemas/index.ts
+moodle-client.config.json

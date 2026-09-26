@@ -14,6 +14,12 @@ describe("CLI argument parser", () => {
         expect(result.configPath).toBeUndefined();
     });
 
+    it("should parse --f flag", () => {
+        const result = parseCliArgs(["--f"]);
+        expect(result.force).toBe(true);
+        expect(result.configPath).toBeUndefined();
+    });
+
     it("should parse --force flag", () => {
         const result = parseCliArgs(["--force"]);
         expect(result.force).toBe(true);
