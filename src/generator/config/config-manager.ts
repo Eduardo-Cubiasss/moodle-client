@@ -112,10 +112,22 @@ export async function loadOrCreateConfig(
     const moodlePath = parsed.moodlePath;
     const isLocal = Boolean(moodlePath);
     const concurrency = parsed.concurrency;
+    const outDir =
+        parsed.outDir && parsed.outDir.trim().length > 0 ? parsed.outDir.trim() : undefined;
+
+    if (moodlePath && !outDir) {
+        throw new MoodleGeneratorError({
+            code: "ERR_CONFIG_MISSING_OUTDIR_LOCAL",
+            title: "Missing outDir in Local Mode",
+            details: `'outDir' is required in '${path.basename(resolvedConfigPath)}' when 'moodlePath' is defined.`,
+            action: `Add "outDir": "./moodle-schemas" (or your preferred output directory) to ${path.basename(resolvedConfigPath)}.`,
+        });
+    }
 
     return {
         version,
         webservices,
+        outDir,
         moodlePath,
         concurrency,
         isLocal,

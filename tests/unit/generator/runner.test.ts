@@ -28,6 +28,7 @@ describe("Runner Orchestration", () => {
             JSON.stringify({ name: "@didactika/moodle-client", version: "2.1.0" }),
             "utf-8"
         );
+        vi.clearAllMocks();
         vi.restoreAllMocks();
     });
 
@@ -98,5 +99,110 @@ describe("Runner Orchestration", () => {
         // Verify declaration exports were ensured in dist/index.d.ts
         const indexDtsContent = await fs.readFile(path.join(nodeModulesDir, "dist/index.d.ts"), "utf-8");
         expect(indexDtsContent).toContain('export * from "./schemas/index"');
+    });
+
+    it("should skip extraction and copy schemas to targetSchemasDir when outDir already has schemas and force is false", async () => {
+        const outDir = path.join(tempDir, "existing-schemas");
+        await fs.mkdir(outDir, { recursive: true });
+        await fs.writeFile(path.join(outDir, "index.d.ts"), "export const cached = true;\n", "utf-8");
+        await fs.writeFile(path.join(outDir, "test.webservice-client.d.ts"), "export interface Test {}\n", "utf-8");
+
+        const fakeConfig: configManager.MoodleClientConfig = {
+            version: "4.5",
+            webservices: ["*"],
+            outDir: "./existing-schemas",
+            isLocal: false,
+        };
+
+        vi.spyOn(configManager, "loadOrCreateConfig").mockResolvedValue(fakeConfig);
+        const cloneSpy = vi.spyOn(downloader, "cloneMoodleVersion");
+
+        const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+        await fs.mkdir(path.join(nodeModulesDir, "dist"), { recursive: true });
+        await fs.writeFile(
+            path.join(nodeModulesDir, "package.json"),
+            JSON.stringify({ name: "@didactika/moodle-client" }),
+            "utf-8"
+        );
+        await fs.writeFile(path.join(nodeModulesDir, "dist/index.d.ts"), "// index\n", "utf-8");
+
+        const originalCwd = process.cwd();
+        try {
+            process.chdir(tempDir);
+            await runGenerator(undefined, { silent: true, force: false });
+        } finally {
+            process.chdir(originalCwd);
+        }
+
+        expect(cloneSpy).not.toHaveBeenCalled();
+        expect(extractWebservice).not.toHaveBeenCalled();
+
+        const targetSchemasDir = path.join(nodeModulesDir, "dist/schemas");
+        const syncedIndex = path.join(targetSchemasDir, "index.d.ts");
+        const syncedTest = path.join(targetSchemasDir, "test.webservice-client.d.ts");
+        expect(await fs.access(syncedIndex).then(() => true).catch(() => false)).toBe(true);
+        expect(await fs.access(syncedTest).then(() => true).catch(() => false)).toBe(true);
+    });
+
+    it("should bypass outDir cache and regenerate both in outDir and node_modules when force is true", async () => {
+        const outDir = path.join(tempDir, "existing-schemas");
+        await fs.mkdir(outDir, { recursive: true });
+        await fs.writeFile(path.join(outDir, "index.d.ts"), "export const old = true;\n", "utf-8");
+
+        const fakeConfig: configManager.MoodleClientConfig = {
+            version: "4.5",
+            webservices: ["core_course_get_courses"],
+            outDir: "./existing-schemas",
+            isLocal: false,
+        };
+
+        vi.spyOn(configManager, "loadOrCreateConfig").mockResolvedValue(fakeConfig);
+        const cloneSpy = vi
+            .spyOn(downloader, "cloneMoodleVersion")
+            .mockResolvedValue(path.join(tempDir, "fake-moodle"));
+        vi.spyOn(downloader, "cleanupMoodleDirectory").mockResolvedValue();
+
+        const fakeSchemas = [
+            {
+                name: "core_course_get_courses",
+                description: "Get courses",
+                parameters: { kind: "parameters", keys: {} },
+                returns: { kind: "value", type: "PARAM_INT", primitiveType: "number" },
+            },
+        ];
+
+        vi.mocked(extractWebservice).mockResolvedValue({
+            schemas: fakeSchemas as any,
+            errors: [],
+        });
+
+        const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+        await fs.mkdir(path.join(nodeModulesDir, "dist"), { recursive: true });
+        await fs.writeFile(
+            path.join(nodeModulesDir, "package.json"),
+            JSON.stringify({ name: "@didactika/moodle-client" }),
+            "utf-8"
+        );
+        await fs.writeFile(path.join(nodeModulesDir, "dist/index.d.ts"), "// index\n", "utf-8");
+
+        const originalCwd = process.cwd();
+        try {
+            process.chdir(tempDir);
+            await runGenerator(undefined, { silent: true, force: true });
+        } finally {
+            process.chdir(originalCwd);
+        }
+
+        expect(cloneSpy).toHaveBeenCalled();
+        expect(extractWebservice).toHaveBeenCalled();
+
+        // Check that outDir has new generated files
+        const outDirGeneratedFile = path.join(outDir, "core/course/get_courses.webservice-client.d.ts");
+        expect(await fs.access(outDirGeneratedFile).then(() => true).catch(() => false)).toBe(true);
+
+        // Check that node_modules has new generated files
+        const targetSchemasDir = path.join(nodeModulesDir, "dist/schemas");
+        const nodeModulesGeneratedFile = path.join(targetSchemasDir, "core/course/get_courses.webservice-client.d.ts");
+        expect(await fs.access(nodeModulesGeneratedFile).then(() => true).catch(() => false)).toBe(true);
     });
 });

@@ -1,18 +1,37 @@
 #!/usr/bin/env node
 import { runGeneratorWithProgress } from "./ui/progress-bar";
 
-function parseConfigPath(args: string[]): string | undefined {
-    const idx = args.indexOf("--config");
-    if (idx !== -1) {
-        return args[idx + 1];
+export interface CliOptions {
+    configPath?: string;
+    force?: boolean;
+}
+
+export function parseCliArgs(args: string[]): CliOptions {
+    let configPath: string | undefined;
+    let force = false;
+
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (!arg) {
+            continue;
+        }
+        if (arg === "-f" || arg === "--force") {
+            force = true;
+        } else if (arg === "--config" && i + 1 < args.length) {
+            configPath = args[i + 1];
+            i++;
+        } else if (arg.startsWith("--config=")) {
+            configPath = arg.slice("--config=".length);
+        }
     }
-    return undefined;
+
+    return { configPath, force };
 }
 
 async function main(): Promise<void> {
-    const configPath = parseConfigPath(process.argv.slice(2));
+    const { configPath, force } = parseCliArgs(process.argv.slice(2));
     try {
-        await runGeneratorWithProgress(configPath);
+        await runGeneratorWithProgress(configPath, { force });
     } catch {
         process.exit(1);
     }

@@ -94,11 +94,14 @@ export function reportProgressError(timer: NodeJS.Timeout | null, error: unknown
 /**
  * Runs the web service generator with a progress bar.
  */
-export async function runGeneratorWithProgress(configPath?: string): Promise<void> {
+export async function runGeneratorWithProgress(
+    configPath?: string,
+    options?: { force?: boolean }
+): Promise<void> {
     const barWidth = 30;
     const { startTime, timer } = startProgressBar(barWidth);
     try {
-        await runGenerator(configPath, { silent: true });
+        await runGenerator(configPath, { silent: true, force: options?.force });
         stopProgressBar(startTime, timer, barWidth);
     } catch (error) {
         reportProgressError(timer, error);
