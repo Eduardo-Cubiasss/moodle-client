@@ -96,13 +96,13 @@ Instead of typing responses by hand, you can generate strongly-typed methods, in
 Run the generator command:
 
 ```console
-npm run moodle:generate-webservices
+npx moodle-client:generate-schemas
 ```
 
 Or specify a custom configuration file:
 
 ```console
-npm run moodle:generate-webservices -- --config path/to/custom-config.json
+npx moodle-client:generate-schemas --config path/to/custom-config.json
 ```
 
 If no configuration file exists, the command automatically creates `moodle-client.config.json` with the latest official Moodle version and generates all available webservices.
@@ -112,13 +112,12 @@ If no configuration file exists, the command automatically creates `moodle-clien
 You can customize the generation behavior using a configuration file in your project root:
 
 #### Remote Mode (Default)
-Downloads a shallow git clone (`--depth 1`) of the official Moodle version tag, extracts AST schemas directly, and cleans up the temporary repository:
+Downloads a high-speed tarball stream of the official Moodle version tag, extracts AST schemas directly, and stores typed definitions directly in `@didactika/moodle-client`:
 
 ```json
 {
   "version": "4.5",
-  "webservices": ["*"],
-  "outDir": "./moodle-schemas"
+  "webservices": ["*"]
 }
 ```
 
@@ -128,8 +127,7 @@ Point `moodlePath` to your local Moodle repository to extract schemas including 
 ```json
 {
   "moodlePath": "/path/to/local/moodle",
-  "webservices": ["core_course_*", "local_custom_*"],
-  "outDir": "./moodle-schemas"
+  "webservices": ["core_course_*", "local_custom_*"]
 }
 ```
 
@@ -188,7 +186,7 @@ moodle-schemas/
 
 ### 5. Schema Generation Errors & Troubleshooting
 
-When executing `npm run moodle:generate-webservices` (or `npx moodle-client`), all errors during configuration loading, codebase extraction, and code generation are reported as clean, structured diagnostic blocks without raw stack traces:
+When executing `npx moodle-client:generate-schemas`, all errors during configuration loading, codebase extraction, and code generation are reported as clean, structured diagnostic blocks without raw stack traces:
 
 ```text
 [moodle-client] ERROR: <Title> (<CODE>)
@@ -203,7 +201,6 @@ These errors occur directly when parsing configuration files or writing generate
 | Error Code | Title | Details & Recommended Action |
 |---|---|---|
 | `ERR_CONFIG_INVALID_JSON` | Invalid Configuration File | `moodle-client.config.json` contains malformed JSON. Fix syntax errors or delete the file to regenerate a clean default. |
-| `ERR_CONFIG_MISSING_OUTDIR_LOCAL` | Missing outDir in Local Mode | When `moodlePath` is defined, `outDir` is required to avoid overwriting internal schemas. Add `"outDir": "./moodle-schemas"` to `moodle-client.config.json`. |
 | `ERR_CONFIG_FILE_NOT_FOUND` | Configuration File Not Found | The custom file passed via `--config <path>` does not exist on disk. Verify the path or omit `--config`. |
 | `ERR_MOODLE_VERSION_UNSUPPORTED` | Unsupported Moodle Version | Configured Moodle version is lower than 2.0. Web services schema generation requires Moodle 2.0 or higher. Set `"version"` to a supported version (e.g. `"4.5"`). |
 | `ERR_WRITE_PERMISSION_DENIED` | Write Permission Denied | Permission denied when creating directories or writing schema files to `outDir`. Check user permissions on the output folder. |
