@@ -15,17 +15,17 @@ vi.mock("@didactika/moodle-client-schemas", async (importOriginal) => {
     };
 });
 
-describe("Runner Orchestration", () => {
+describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
     let tempDir: string;
     let mockPkgDir: string;
 
     beforeEach(async () => {
-        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "moodle-runner-test-"));
+        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "moodle-multi-runner-test-"));
         mockPkgDir = path.join(tempDir, "pkg");
         await fs.mkdir(path.join(mockPkgDir, "dist"), { recursive: true });
         await fs.writeFile(
             path.join(mockPkgDir, "package.json"),
-            JSON.stringify({ name: "@didactika/moodle-client", version: "2.1.0" }),
+            JSON.stringify({ name: "@didactika/moodle-client", version: "2.2.5" }),
             "utf-8"
         );
         vi.clearAllMocks();
@@ -36,20 +36,35 @@ describe("Runner Orchestration", () => {
         await fs.rm(tempDir, { recursive: true, force: true });
     });
 
-    it("should coordinate download, extraction, and generation directly into client package", async () => {
-        const fakeConfig: configManager.MoodleClientConfig = {
-            version: "4.5",
-            webservices: ["core_course_get_courses"],
-            isLocal: false,
-        };
+    it("should process multiple schemas concurrently with p-limit(2) and generate per-schema directories and master barrel", async () => {
+        const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
+            {
+                namespace: "legacy",
+                source: {
+                    type: "local",
+                    path: path.join(tempDir, "local-moodle"),
+                },
+                webservices: ["core_course_*"],
+                outDir: "./schemas/local",
+            },
+            {
+                namespace: "default",
+                source: {
+                    type: "moodle-official",
+                    version: "4.4",
+                },
+                webservices: ["core_user_*"],
+                outDir: "./schemas/v4.4",
+            },
+        ];
 
-        vi.spyOn(configManager, "loadOrCreateConfig").mockResolvedValue(fakeConfig);
+        vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue(fakeConfigs);
         const cloneSpy = vi
             .spyOn(downloader, "cloneMoodleVersion")
-            .mockResolvedValue(path.join(tempDir, "fake-moodle"));
+            .mockResolvedValue(path.join(tempDir, "cloned-moodle"));
         const cleanupSpy = vi.spyOn(downloader, "cleanupMoodleDirectory").mockResolvedValue();
 
-        const fakeSchemas = [
+        const fakeCourseSchemas = [
             {
                 name: "core_course_get_courses",
                 description: "Get courses",
@@ -58,12 +73,23 @@ describe("Runner Orchestration", () => {
             },
         ];
 
-        vi.mocked(extractWebservice).mockResolvedValue({
-            schemas: fakeSchemas as any,
-            errors: [],
+        const fakeUserSchemas = [
+            {
+                name: "core_user_get_users",
+                description: "Get users",
+                parameters: { kind: "parameters", keys: {} },
+                returns: { kind: "value", type: "PARAM_INT", primitiveType: "number" },
+            },
+        ];
+
+        vi.mocked(extractWebservice).mockImplementation(async (opts) => {
+            if (opts.services && opts.services[0] === "core_course_*") {
+                return { schemas: fakeCourseSchemas as any, errors: [] };
+            }
+            return { schemas: fakeUserSchemas as any, errors: [] };
         });
 
-        // Set cwd to tempDir where node_modules has the mock package
+        // Setup mock node_modules/@didactika/moodle-client
         const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
         await fs.mkdir(path.join(nodeModulesDir, "dist"), { recursive: true });
         await fs.writeFile(
@@ -81,41 +107,52 @@ describe("Runner Orchestration", () => {
             process.chdir(originalCwd);
         }
 
-        expect(cloneSpy).toHaveBeenCalledWith("4.5", expect.any(String));
-        expect(extractWebservice).toHaveBeenCalledWith(
-            expect.objectContaining({
-                services: ["core_course_get_courses"],
-            })
-        );
-        expect(cleanupSpy).toHaveBeenCalled();
+        // Verify clone was only called for official source, not local
+        expect(cloneSpy).toHaveBeenCalledTimes(1);
+        expect(cloneSpy).toHaveBeenCalledWith("4.4", expect.any(String));
+        expect(cleanupSpy).toHaveBeenCalledTimes(1);
 
-        // Verify schemas were generated inside node_modules/@didactika/moodle-client/dist/schemas
+        // Verify extraction called for both configurations
+        expect(extractWebservice).toHaveBeenCalledTimes(2);
+
+        // Verify output directories inside node_modules/@didactika/moodle-client/dist/schemas/{name}/
         const targetSchemasDir = path.join(nodeModulesDir, "dist/schemas");
-        const courseFile = path.join(targetSchemasDir, "core/course/get_courses.webservice-client.d.ts");
-        const indexFile = path.join(targetSchemasDir, "index.d.ts");
-        expect(await fs.access(courseFile).then(() => true).catch(() => false)).toBe(true);
-        expect(await fs.access(indexFile).then(() => true).catch(() => false)).toBe(true);
+        const legacyIndex = path.join(targetSchemasDir, "legacy/index.d.ts");
+        const defaultIndex = path.join(targetSchemasDir, "default/index.d.ts");
+        expect(await fs.access(legacyIndex).then(() => true).catch(() => false)).toBe(true);
+        expect(await fs.access(defaultIndex).then(() => true).catch(() => false)).toBe(true);
 
-        // Verify declaration exports were ensured in dist/index.d.ts
-        const indexDtsContent = await fs.readFile(path.join(nodeModulesDir, "dist/index.d.ts"), "utf-8");
-        expect(indexDtsContent).toContain('export * from "./schemas/index"');
+        // Verify master barrel inside dist/schemas/index.d.ts exports namespaces
+        const masterBarrel = await fs.readFile(path.join(targetSchemasDir, "index.d.ts"), "utf-8");
+        expect(masterBarrel).toContain("legacy:");
+        expect(masterBarrel).toContain("default:");
+        expect(masterBarrel).toContain("export interface GeneratedMoodleServices");
+
+        // Verify output directories in project outDir/[name]/
+        const outDirLegacy = path.join(tempDir, "schemas/local/legacy/index.d.ts");
+        const outDirDefault = path.join(tempDir, "schemas/v4.4/default/index.d.ts");
+        expect(await fs.access(outDirLegacy).then(() => true).catch(() => false)).toBe(true);
+        expect(await fs.access(outDirDefault).then(() => true).catch(() => false)).toBe(true);
     });
 
-    it("should skip extraction and copy schemas to targetSchemasDir when outDir already has schemas and force is false", async () => {
-        const outDir = path.join(tempDir, "existing-schemas");
+    it("should skip extraction and sync existing schemas when outDir/[name] already contains schemas and force is false", async () => {
+        const outDir = path.join(tempDir, "schemas/local/legacy");
         await fs.mkdir(outDir, { recursive: true });
         await fs.writeFile(path.join(outDir, "index.d.ts"), "export const cached = true;\n", "utf-8");
-        await fs.writeFile(path.join(outDir, "test.webservice-client.d.ts"), "export interface Test {}\n", "utf-8");
 
-        const fakeConfig: configManager.MoodleClientConfig = {
-            version: "4.5",
-            webservices: ["*"],
-            outDir: "./existing-schemas",
-            isLocal: false,
-        };
+        const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
+            {
+                namespace: "legacy",
+                source: {
+                    type: "local",
+                    path: path.join(tempDir, "local-moodle"),
+                },
+                webservices: ["*"],
+                outDir: "./schemas/local",
+            },
+        ];
 
-        vi.spyOn(configManager, "loadOrCreateConfig").mockResolvedValue(fakeConfig);
-        const cloneSpy = vi.spyOn(downloader, "cloneMoodleVersion");
+        vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue(fakeConfigs);
 
         const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
         await fs.mkdir(path.join(nodeModulesDir, "dist"), { recursive: true });
@@ -134,35 +171,33 @@ describe("Runner Orchestration", () => {
             process.chdir(originalCwd);
         }
 
-        expect(cloneSpy).not.toHaveBeenCalled();
         expect(extractWebservice).not.toHaveBeenCalled();
 
-        const targetSchemasDir = path.join(nodeModulesDir, "dist/schemas");
+        const targetSchemasDir = path.join(nodeModulesDir, "dist/schemas/legacy");
         const syncedIndex = path.join(targetSchemasDir, "index.d.ts");
-        const syncedTest = path.join(targetSchemasDir, "test.webservice-client.d.ts");
         expect(await fs.access(syncedIndex).then(() => true).catch(() => false)).toBe(true);
-        expect(await fs.access(syncedTest).then(() => true).catch(() => false)).toBe(true);
     });
 
-    it("should bypass outDir cache and regenerate both in outDir and node_modules when force is true", async () => {
-        const outDir = path.join(tempDir, "existing-schemas");
+    it("should bypass outDir cache and regenerate when force is true", async () => {
+        const outDir = path.join(tempDir, "schemas/local/legacy");
         await fs.mkdir(outDir, { recursive: true });
         await fs.writeFile(path.join(outDir, "index.d.ts"), "export const old = true;\n", "utf-8");
 
-        const fakeConfig: configManager.MoodleClientConfig = {
-            version: "4.5",
-            webservices: ["core_course_get_courses"],
-            outDir: "./existing-schemas",
-            isLocal: false,
-        };
+        const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
+            {
+                namespace: "legacy",
+                source: {
+                    type: "local",
+                    path: path.join(tempDir, "local-moodle"),
+                },
+                webservices: ["core_course_*"],
+                outDir: "./schemas/local",
+            },
+        ];
 
-        vi.spyOn(configManager, "loadOrCreateConfig").mockResolvedValue(fakeConfig);
-        const cloneSpy = vi
-            .spyOn(downloader, "cloneMoodleVersion")
-            .mockResolvedValue(path.join(tempDir, "fake-moodle"));
-        vi.spyOn(downloader, "cleanupMoodleDirectory").mockResolvedValue();
+        vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue(fakeConfigs);
 
-        const fakeSchemas = [
+        const fakeCourseSchemas = [
             {
                 name: "core_course_get_courses",
                 description: "Get courses",
@@ -172,7 +207,7 @@ describe("Runner Orchestration", () => {
         ];
 
         vi.mocked(extractWebservice).mockResolvedValue({
-            schemas: fakeSchemas as any,
+            schemas: fakeCourseSchemas as any,
             errors: [],
         });
 
@@ -193,16 +228,11 @@ describe("Runner Orchestration", () => {
             process.chdir(originalCwd);
         }
 
-        expect(cloneSpy).toHaveBeenCalled();
         expect(extractWebservice).toHaveBeenCalled();
 
-        // Check that outDir has new generated files
-        const outDirGeneratedFile = path.join(outDir, "core/course/get_courses.webservice-client.d.ts");
-        expect(await fs.access(outDirGeneratedFile).then(() => true).catch(() => false)).toBe(true);
-
-        // Check that node_modules has new generated files
-        const targetSchemasDir = path.join(nodeModulesDir, "dist/schemas");
-        const nodeModulesGeneratedFile = path.join(targetSchemasDir, "core/course/get_courses.webservice-client.d.ts");
-        expect(await fs.access(nodeModulesGeneratedFile).then(() => true).catch(() => false)).toBe(true);
+        const targetSchemasDir = path.join(nodeModulesDir, "dist/schemas/legacy");
+        const courseDir = path.join(targetSchemasDir, "core/course");
+        const generatedFiles = await fs.readdir(courseDir);
+        expect(generatedFiles.some((f) => f.startsWith("get_courses.webservice"))).toBe(true);
     });
 });

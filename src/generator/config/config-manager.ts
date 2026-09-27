@@ -1,9 +1,19 @@
 import fs from "fs/promises";
 import path from "path";
 import { MoodleGeneratorError } from "@didactika/moodle-client-schemas";
-import { MoodleClientConfig, RawMoodleClientConfig } from "../interfaces/config.interfaces";
+import {
+    MoodleClientConfig,
+    RawMoodleClientConfig,
+    MoodleSchemaConfigEntry,
+    PackageJsonWithMoodleClient,
+} from "../interfaces/config.interfaces";
 
-export { MoodleClientConfig, RawMoodleClientConfig };
+export {
+    MoodleClientConfig,
+    RawMoodleClientConfig,
+    MoodleSchemaConfigEntry,
+    PackageJsonWithMoodleClient,
+};
 
 export const DEFAULT_CONFIG_FILENAME = "moodle-client.config.json";
 export const FALLBACK_MOODLE_VERSION = "4.5";
@@ -133,3 +143,174 @@ export async function loadOrCreateConfig(
         isLocal,
     };
 }
+
+/**
+ * Loads multi-schema configurations from package.json ("moodle-client" property).
+ */
+export async function loadPackageConfig(
+    pkgPath?: string
+): Promise<MoodleSchemaConfigEntry[]> {
+    const resolvedPkgPath = pkgPath
+        ? path.resolve(pkgPath)
+        : path.resolve(process.cwd(), "package.json");
+
+    const fileExists = await fs
+        .access(resolvedPkgPath)
+        .then(() => true)
+        .catch(() => false);
+
+    if (!fileExists) {
+        throw new MoodleGeneratorError({
+            code: "ERR_CONFIG_FILE_NOT_FOUND",
+            title: "package.json Not Found",
+            details: `package.json was not found at '${resolvedPkgPath}'.`,
+            action: "Ensure you are running the command in a project containing a package.json file.",
+        });
+    }
+
+    const rawContent = await fs.readFile(resolvedPkgPath, "utf-8");
+    let parsed: PackageJsonWithMoodleClient;
+    try {
+        parsed = JSON.parse(rawContent);
+    } catch (parseErr: unknown) {
+        const errorMsg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+        throw new MoodleGeneratorError({
+            code: "ERR_CONFIG_INVALID_JSON",
+            title: "Invalid package.json File",
+            details: `The package.json file at '${resolvedPkgPath}' contains invalid JSON: ${errorMsg}.`,
+            action: "Fix syntax errors in your package.json.",
+            cause: parseErr,
+        });
+    }
+
+    const moodleClient = parsed["moodle-client"];
+    if (!moodleClient || !Array.isArray(moodleClient)) {
+        throw new MoodleGeneratorError({
+            code: "ERR_CONFIG_MISSING_MOODLE_CLIENT" as any,
+            title: "Missing 'moodle-client' in package.json",
+            details: "Missing 'moodle-client' configuration in package.json.",
+            action: "Add a 'moodle-client' array with schema configurations to your package.json.",
+        });
+    }
+
+    if (moodleClient.length === 0) {
+        throw new MoodleGeneratorError({
+            code: "ERR_CONFIG_EMPTY_MOODLE_CLIENT" as any,
+            title: "Empty 'moodle-client' Configuration",
+            details: "'moodle-client' in package.json must contain at least one configuration.",
+            action: "Add at least one configuration entry to 'moodle-client' in package.json.",
+        });
+    }
+
+    const seenNamespaces = new Set<string>();
+    const resolvedConfigs: MoodleSchemaConfigEntry[] = [];
+
+    for (let i = 0; i < moodleClient.length; i++) {
+        const entry = moodleClient[i];
+        if (!entry || typeof entry !== "object") {
+            throw new MoodleGeneratorError({
+                code: "ERR_CONFIG_INVALID_ENTRY" as any,
+                title: "Invalid Configuration Entry",
+                details: `Configuration entry at index ${i} in 'moodle-client' is not an object.`,
+                action: "Ensure all elements in 'moodle-client' are valid configuration objects.",
+            });
+        }
+
+        const namespace = typeof entry.namespace === "string" ? entry.namespace.trim() : "";
+        if (!namespace) {
+            throw new MoodleGeneratorError({
+                code: "ERR_CONFIG_MISSING_NAMESPACE" as any,
+                title: "Missing Configuration Namespace",
+                details: `Configuration entry at index ${i} is missing a 'namespace' property.`,
+                action: "Specify a unique 'namespace' string for each configuration in 'moodle-client'.",
+            });
+        }
+
+        if (seenNamespaces.has(namespace)) {
+            throw new MoodleGeneratorError({
+                code: "ERR_CONFIG_DUPLICATE_NAMESPACE" as any,
+                title: "Duplicate Configuration Namespace",
+                details: `Duplicate configuration namespace '${namespace}' found in 'moodle-client'. Each entry must have a unique namespace.`,
+                action: "Assign a unique namespace to each configuration in 'moodle-client'.",
+            });
+        }
+        seenNamespaces.add(namespace);
+
+        if (!entry.source || typeof entry.source !== "object") {
+            throw new MoodleGeneratorError({
+                code: "ERR_CONFIG_MISSING_SOURCE" as any,
+                title: "Missing Configuration Source",
+                details: `Configuration '${namespace}' is missing a valid 'source' property.`,
+                action: "Define 'source' with type 'local' or 'moodle-official'.",
+            });
+        }
+
+        const sourceType = entry.source.type;
+        if (sourceType === "local") {
+            const localPath = (entry.source as any).path;
+            if (!localPath || typeof localPath !== "string") {
+                throw new MoodleGeneratorError({
+                    code: "ERR_CONFIG_MISSING_LOCAL_PATH" as any,
+                    title: "Missing Local Path",
+                    details: `Configuration '${namespace}' specifies source 'local' but is missing 'path'.`,
+                    action: "Specify the filesystem path to the Moodle codebase in 'source.path'.",
+                });
+            }
+
+            const outDir = entry.outDir && entry.outDir.trim().length > 0 ? entry.outDir.trim() : undefined;
+            if (!outDir) {
+                throw new MoodleGeneratorError({
+                    code: "ERR_CONFIG_MISSING_OUTDIR_LOCAL",
+                    title: "Missing outDir in Local Mode",
+                    details: `Missing outDir in Local Mode for configuration '${namespace}'. 'outDir' is required when source type is 'local'.`,
+                    action: `Add "outDir": "./schemas/local" (or your preferred output directory) to configuration '${namespace}'.`,
+                });
+            }
+
+            resolvedConfigs.push({
+                namespace,
+                source: {
+                    type: "local",
+                    path: localPath,
+                },
+                webservices: Array.isArray(entry.webservices) && entry.webservices.length > 0 ? entry.webservices : ["*"],
+                outDir,
+                concurrency: entry.concurrency,
+            });
+        } else if (sourceType === "moodle-official") {
+            const rawVersion = (entry.source as any).version || FALLBACK_MOODLE_VERSION;
+            if (!isMoodleVersionSupported(rawVersion)) {
+                throw new MoodleGeneratorError({
+                    code: "ERR_MOODLE_VERSION_UNSUPPORTED",
+                    title: "Unsupported Moodle Version",
+                    details: `Moodle version '${rawVersion}' is not supported in configuration '${namespace}'. Web services schema generation requires Moodle 2.0 or higher.`,
+                    action: `Set "version" to a supported Moodle version (>= 2.0, e.g. "4.4") in configuration '${namespace}'.`,
+                });
+            }
+
+            const version = normalizeMoodleVersion(rawVersion);
+            const outDir = entry.outDir && entry.outDir.trim().length > 0 ? entry.outDir.trim() : undefined;
+
+            resolvedConfigs.push({
+                namespace,
+                source: {
+                    type: "moodle-official",
+                    version,
+                },
+                webservices: Array.isArray(entry.webservices) && entry.webservices.length > 0 ? entry.webservices : ["*"],
+                outDir,
+                concurrency: entry.concurrency,
+            });
+        } else {
+            throw new MoodleGeneratorError({
+                code: "ERR_CONFIG_INVALID_SOURCE_TYPE" as any,
+                title: "Invalid Source Type",
+                details: `Configuration '${namespace}' has unknown source type '${sourceType}'. Must be 'local' or 'moodle-official'.`,
+                action: "Set 'source.type' to 'local' or 'moodle-official'.",
+            });
+        }
+    }
+
+    return resolvedConfigs;
+}
+

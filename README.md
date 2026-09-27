@@ -40,8 +40,8 @@ const moodle = new MoodleClient({
   token: process.env.MOODLE_TOKEN!,
 });
 
-// Call the web service using the strongly-typed generated method:
-const { data: courses } = await moodle.core_course_get_courses({
+// Call the web service through its configured schema namespace:
+const { data: courses } = await moodle.default.core_course_get_courses({
   options: { ids: [1, 2, 3] },
 });
 
@@ -89,9 +89,57 @@ const { data } = await moodle.call<Course[]>("core_course_get_courses");
 
 ## Typed Web Services Generation
 
-Instead of typing responses by hand, you can generate strongly-typed methods, interfaces, and declaration merges for all Moodle web services directly from official Moodle source or your local instance.
+Generate strongly-typed methods, interfaces, and declaration merges for multiple Moodle web services directly from official Moodle releases or local instances.
 
-### 1. Generate Web Services
+### 1. Configuration in `package.json`
+
+Configure one or more schema sources under the `"moodle-client"` array in your `package.json`:
+
+```json
+{
+  "name": "my-moodle-app",
+  "version": "1.0.0",
+  "scripts": {
+    "moodle:generate-schemas": "moodle-generate-schemas"
+  },
+  "moodle-client": [
+    {
+      "namespace": "legacy",
+      "source": {
+        "type": "local",
+        "path": "~/tmp/moodle"
+      },
+      "webservices": [
+        "core_*"
+      ],
+      "outDir": "./schemas/local"
+    },
+    {
+      "namespace": "default",
+      "source": {
+        "type": "moodle-official",
+        "version": "4.4"
+      },
+      "webservices": [
+        "core_course_*",
+        "mod_assign_*"
+      ],
+      "outDir": "./schemas/v4.4"
+    }
+  ]
+}
+```
+
+#### Configuration Options
+
+- `namespace` (string, required): Unique namespace identifier used on `MoodleClient` (e.g. `moodle.legacy.*`, `moodle.default.*`).
+- `source` (object, required):
+  - Official release: `{ "type": "moodle-official", "version": "4.4" }`
+  - Local instance: `{ "type": "local", "path": "/path/to/moodle" }`
+- `webservices` (string[], required): Service names or wildcard patterns to include (e.g. `["core_*"]` or `["*"]`).
+- `outDir` (string): Output directory path. Required when `source.type` is `"local"`, optional for `"moodle-official"`. Output files are generated under `[outDir]/{namespace}/`.
+
+### 2. Generate Schemas
 
 Run the generator command:
 
@@ -99,39 +147,27 @@ Run the generator command:
 npx moodle-generate-schemas
 ```
 
-Or specify a custom configuration file:
+Flags:
+- `--force` or `--f`: Bypasses existing schemas in `outDir` cache and forces re-extraction and regeneration.
 
-```console
-npx moodle-generate-schemas --config path/to/custom-config.json
+### 3. Usage with Full TypeScript Autocomplete
+
+Import the client and access web services directly through each configured namespace:
+
+```ts
+import { MoodleClient, InvalidParameter } from "@didactika/moodle-client";
+
+const moodle = new MoodleClient({
+  rootURL: "https://moodle.example.org",
+  token: process.env.MOODLE_TOKEN!,
+});
+
+// Access methods via namespace:
+const { data: site } = await moodle.default.core_webservice_get_site_info();
+const { data: courses } = await moodle.legacy.core_course_get_courses({
+  options: { ids: [1, 2] },
+});
 ```
-
-If no configuration file exists, the command automatically creates `moodle-client.config.json` with the latest official Moodle version and generates all available webservices.
-
-### 2. Configuration (`moodle-client.config.json`)
-
-You can customize the generation behavior using a configuration file in your project root:
-
-#### Remote Mode (Default)
-Downloads a high-speed tarball stream of the official Moodle version tag, extracts AST schemas directly, and stores typed definitions directly in `@didactika/moodle-client`:
-
-```json
-{
-  "version": "4.5",
-  "webservices": ["*"]
-}
-```
-
-#### Local Mode (For Custom Plugins)
-Point `moodlePath` to your local Moodle repository to extract schemas including your custom plugins (`local_*`, `mod_*`, etc.):
-
-```json
-{
-  "moodlePath": "/path/to/local/moodle",
-  "webservices": ["core_course_*", "local_custom_*"]
-}
-```
-
-### 3. Key Design Principles
 
 - **Automatic OutDir Cleanup**: Every time `npm run moodle:generate-webservices` executes, the destination folder (`outDir`) is wiped and regenerated. This guarantees that if you narrow your `webservices` filter (e.g. from `["*"]` to `["core_course_*"]`), no orphaned or stale schemas remain.
 - **Full PascalCase Exact Naming**: Type names preserve the full, unabbreviated Moodle function name in PascalCase (for example, `core_course_get_courses` produces `CoreCourseGetCoursesParameters` and `CoreCourseGetCoursesReturns`).

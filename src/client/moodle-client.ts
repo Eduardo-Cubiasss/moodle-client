@@ -31,6 +31,7 @@ const BODYLESS_METHODS = new Set(["GET", "HEAD"]);
 export class MoodleClient {
     private readonly endpoint: MoodleEndpoint;
     private readonly defaultMethod: HttpMethod;
+    private readonly namespaceProxies = new Map<string, object>();
 
     constructor(options: IMoodleClientOptions) {
         this.endpoint = new MoodleEndpoint(options.rootURL, options.token);
@@ -38,10 +39,28 @@ export class MoodleClient {
 
         return new Proxy(this, {
             get(target, prop, receiver) {
-                if (typeof prop === "string" && !(prop in target)) {
-                    return (content?: object, method?: HttpMethod) => {
-                        return target.call(prop, content, method);
-                    };
+                if (typeof prop === "symbol" || prop in target) {
+                    return Reflect.get(target, prop, receiver);
+                }
+                if (typeof prop === "string") {
+                    let nsProxy = target.namespaceProxies.get(prop);
+                    if (!nsProxy) {
+                        nsProxy = new Proxy(
+                            {},
+                            {
+                                get(_nsTarget, wsName) {
+                                    if (typeof wsName === "string") {
+                                        return (content?: object, method?: HttpMethod) => {
+                                            return target.call(wsName, content, method);
+                                        };
+                                    }
+                                    return undefined;
+                                },
+                            }
+                        );
+                        target.namespaceProxies.set(prop, nsProxy);
+                    }
+                    return nsProxy;
                 }
                 return Reflect.get(target, prop, receiver);
             },

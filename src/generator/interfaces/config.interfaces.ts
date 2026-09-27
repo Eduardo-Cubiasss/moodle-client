@@ -1,29 +1,58 @@
-/**
- * Fully resolved configuration used by the Moodle client generator.
- */
-export interface MoodleClientConfig {
-    /** Target Moodle major.minor version string (e.g. '4.5') */
+export interface MoodleLocalSource {
+    type: "local";
+    path: string;
+}
+
+export interface MoodleOfficialSource {
+    type: "moodle-official";
     version: string;
+}
+
+export type MoodleSourceConfig = MoodleLocalSource | MoodleOfficialSource;
+
+/**
+ * Configuration entry for a single Moodle schema namespace.
+ */
+export interface MoodleSchemaConfigEntry {
+    /** Unique namespace identifier (e.g. 'legacy', 'default') */
+    namespace: string;
+    /** Source of the Moodle codebase (local directory or official git version) */
+    source: MoodleSourceConfig;
     /** List of webservice patterns or exact names to include */
     webservices: string[];
-    /** Optional output directory path for generated webservice client files */
+    /** Output directory path. Required for local source, optional for official */
     outDir?: string;
-    /** Local filesystem path to Moodle codebase (if present, isLocal is true) */
-    moodlePath?: string;
-    /** Concurrency limit for extraction */
+    /** Concurrency limit for schema extraction */
     concurrency?: number;
-    /** Whether extraction uses local codebase or downloads official remote git version */
-    isLocal: boolean;
 }
 
 /**
- * Raw configuration structure read directly from disk (moodle-client.config.json).
+ * Structure of package.json containing moodle-client configuration.
  */
+export interface PackageJsonWithMoodleClient {
+    name?: string;
+    version?: string;
+    "moodle-client"?: MoodleSchemaConfigEntry[];
+    [key: string]: unknown;
+}
+
+/**
+ * Backward compatibility interface for single configuration.
+ */
+export interface MoodleClientConfig {
+    version: string;
+    webservices: string[];
+    outDir?: string;
+    moodlePath?: string;
+    concurrency?: number;
+    isLocal: boolean;
+}
+
 export interface RawMoodleClientConfig {
     version?: string;
     webservices?: string[];
     moodlePath?: string;
     concurrency?: number;
-    /** Optional output directory path for generated webservice client files. Required when moodlePath is defined. */
     outDir?: string;
 }
+

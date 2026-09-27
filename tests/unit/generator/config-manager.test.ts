@@ -3,17 +3,18 @@ import fs from "fs/promises";
 import path from "path";
 import os from "os";
 import {
-    loadOrCreateConfig,
+    loadPackageConfig,
     normalizeMoodleVersion,
     isMoodleVersionSupported,
-    DEFAULT_CONFIG_FILENAME,
 } from "../../../src/generator/config/config-manager";
 
-describe("ConfigManager", () => {
+describe("ConfigManager - package.json Configuration", () => {
     let tempDir: string;
+    let pkgJsonPath: string;
 
     beforeEach(async () => {
-        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "moodle-config-test-"));
+        tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "moodle-pkg-config-test-"));
+        pkgJsonPath = path.join(tempDir, "package.json");
     });
 
     afterEach(async () => {
@@ -33,91 +34,147 @@ describe("ConfigManager", () => {
         expect(isMoodleVersionSupported("1.9")).toBe(false);
     });
 
-    it("should create default config when file does not exist", async () => {
-        const configPath = path.join(tempDir, DEFAULT_CONFIG_FILENAME);
-        const config = await loadOrCreateConfig(configPath, "4.5");
+    it("should load valid multi-schema configuration from package.json", async () => {
+        const pkgContent = {
+            name: "test-app",
+            version: "1.0.0",
+            "moodle-client": [
+                {
+                    namespace: "legacy",
+                    source: {
+                        type: "local",
+                        path: "/var/www/moodle",
+                    },
+                    webservices: ["core_*"],
+                    outDir: "./schemas/local",
+                },
+                {
+                    namespace: "default",
+                    source: {
+                        type: "moodle-official",
+                        version: "4.4",
+                    },
+                    webservices: ["core_course_*", "mod_assign_*"],
+                    outDir: "./schemas/v4.4",
+                },
+            ],
+        };
+        await fs.writeFile(pkgJsonPath, JSON.stringify(pkgContent, null, 2), "utf-8");
 
-        expect(config.version).toBe("4.5");
-        expect(config.webservices).toEqual(["*"]);
-        expect(config.isLocal).toBe(false);
-        expect(config.moodlePath).toBeUndefined();
+        const configs = await loadPackageConfig(pkgJsonPath);
+        expect(configs).toHaveLength(2);
 
-        const fileContent = JSON.parse(await fs.readFile(configPath, "utf-8"));
-        expect(fileContent.version).toBe("4.5");
-        expect(fileContent.webservices).toEqual(["*"]);
+        expect(configs[0].namespace).toBe("legacy");
+        expect(configs[0].source.type).toBe("local");
+        expect((configs[0].source as any).path).toBe("/var/www/moodle");
+        expect(configs[0].outDir).toBe("./schemas/local");
+        expect(configs[0].webservices).toEqual(["core_*"]);
+
+        expect(configs[1].namespace).toBe("default");
+        expect(configs[1].source.type).toBe("moodle-official");
+        expect((configs[1].source as any).version).toBe("4.4");
+        expect(configs[1].outDir).toBe("./schemas/v4.4");
+        expect(configs[1].webservices).toEqual(["core_course_*", "mod_assign_*"]);
     });
 
-    it("should throw ERR_CONFIG_MISSING_OUTDIR_LOCAL when moodlePath is defined without outDir", async () => {
-        const configPath = path.join(tempDir, DEFAULT_CONFIG_FILENAME);
-        const mockLocalMoodle = path.join(tempDir, "local-moodle");
-        await fs.mkdir(mockLocalMoodle, { recursive: true });
-
-        const customConfig = {
-            version: "4.4",
-            moodlePath: mockLocalMoodle,
-            webservices: ["core_course_get_courses"],
+    it("should allow moodle-official source without outDir (optional in remote mode)", async () => {
+        const pkgContent = {
+            name: "test-app",
+            "moodle-client": [
+                {
+                    namespace: "default",
+                    source: {
+                        type: "moodle-official",
+                        version: "4.5",
+                    },
+                    webservices: ["*"],
+                },
+            ],
         };
-        await fs.writeFile(configPath, JSON.stringify(customConfig), "utf-8");
+        await fs.writeFile(pkgJsonPath, JSON.stringify(pkgContent, null, 2), "utf-8");
 
-        await expect(loadOrCreateConfig(configPath)).rejects.toThrowError(
+        const configs = await loadPackageConfig(pkgJsonPath);
+        expect(configs).toHaveLength(1);
+        expect(configs[0].outDir).toBeUndefined();
+    });
+
+    it("should throw ERR_CONFIG_MISSING_OUTDIR_LOCAL when local source has no outDir", async () => {
+        const pkgContent = {
+            name: "test-app",
+            "moodle-client": [
+                {
+                    namespace: "legacy",
+                    source: {
+                        type: "local",
+                        path: "/var/www/moodle",
+                    },
+                    webservices: ["core_*"],
+                },
+            ],
+        };
+        await fs.writeFile(pkgJsonPath, JSON.stringify(pkgContent, null, 2), "utf-8");
+
+        await expect(loadPackageConfig(pkgJsonPath)).rejects.toThrowError(
             /Missing outDir in Local Mode/
         );
     });
 
-    it("should load existing config with moodlePath and outDir in local mode", async () => {
-        const configPath = path.join(tempDir, DEFAULT_CONFIG_FILENAME);
-        const mockLocalMoodle = path.join(tempDir, "local-moodle");
-        await fs.mkdir(mockLocalMoodle, { recursive: true });
-
-        const customConfig = {
-            version: "4.4",
-            moodlePath: mockLocalMoodle,
-            outDir: "./custom-schemas",
-            webservices: ["core_course_get_courses"],
+    it("should throw ERR_CONFIG_DUPLICATE_NAMESPACE when two configurations share the same namespace", async () => {
+        const pkgContent = {
+            name: "test-app",
+            "moodle-client": [
+                {
+                    namespace: "default",
+                    source: {
+                        type: "moodle-official",
+                        version: "4.5",
+                    },
+                    webservices: ["*"],
+                },
+                {
+                    namespace: "default",
+                    source: {
+                        type: "moodle-official",
+                        version: "4.4",
+                    },
+                    webservices: ["*"],
+                },
+            ],
         };
-        await fs.writeFile(configPath, JSON.stringify(customConfig), "utf-8");
+        await fs.writeFile(pkgJsonPath, JSON.stringify(pkgContent, null, 2), "utf-8");
 
-        const loaded = await loadOrCreateConfig(configPath);
-        expect(loaded.version).toBe("4.4");
-        expect(loaded.isLocal).toBe(true);
-        expect(loaded.moodlePath).toBe(mockLocalMoodle);
-        expect(loaded.outDir).toBe("./custom-schemas");
-        expect(loaded.webservices).toEqual(["core_course_get_courses"]);
+        await expect(loadPackageConfig(pkgJsonPath)).rejects.toThrowError(
+            /Duplicate configuration namespace/
+        );
     });
 
-    it("should load existing config without outDir in remote mode", async () => {
-        const configPath = path.join(tempDir, DEFAULT_CONFIG_FILENAME);
-        const customConfig = {
-            version: "4.5",
-            webservices: ["core_course_get_courses"],
+    it("should throw ERR_CONFIG_MISSING_MOODLE_CLIENT when package.json does not contain moodle-client", async () => {
+        const pkgContent = {
+            name: "test-app",
+            version: "1.0.0",
         };
-        await fs.writeFile(configPath, JSON.stringify(customConfig), "utf-8");
+        await fs.writeFile(pkgJsonPath, JSON.stringify(pkgContent, null, 2), "utf-8");
 
-        const loaded = await loadOrCreateConfig(configPath);
-        expect(loaded.version).toBe("4.5");
-        expect(loaded.isLocal).toBe(false);
-        expect(loaded.outDir).toBeUndefined();
+        await expect(loadPackageConfig(pkgJsonPath)).rejects.toThrowError(
+            /Missing 'moodle-client' configuration in package.json/
+        );
     });
 
-    it("should load existing config with outDir in remote mode", async () => {
-        const configPath = path.join(tempDir, DEFAULT_CONFIG_FILENAME);
-        const customConfig = {
-            version: "4.5",
-            outDir: "./remote-schemas",
-            webservices: ["core_course_get_courses"],
+    it("should throw ERR_CONFIG_EMPTY_MOODLE_CLIENT when moodle-client array is empty", async () => {
+        const pkgContent = {
+            name: "test-app",
+            "moodle-client": [],
         };
-        await fs.writeFile(configPath, JSON.stringify(customConfig), "utf-8");
+        await fs.writeFile(pkgJsonPath, JSON.stringify(pkgContent, null, 2), "utf-8");
 
-        const loaded = await loadOrCreateConfig(configPath);
-        expect(loaded.version).toBe("4.5");
-        expect(loaded.isLocal).toBe(false);
-        expect(loaded.outDir).toBe("./remote-schemas");
+        await expect(loadPackageConfig(pkgJsonPath)).rejects.toThrowError(
+            /'moodle-client' in package.json must contain at least one configuration/
+        );
     });
 
-    it("should throw on invalid JSON", async () => {
-        const configPath = path.join(tempDir, DEFAULT_CONFIG_FILENAME);
-        await fs.writeFile(configPath, "{ invalid json", "utf-8");
+    it("should throw on invalid JSON syntax in package.json", async () => {
+        await fs.writeFile(pkgJsonPath, "{ not valid json", "utf-8");
 
-        await expect(loadOrCreateConfig(configPath)).rejects.toThrow();
+        await expect(loadPackageConfig(pkgJsonPath)).rejects.toThrow();
     });
 });
