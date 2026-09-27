@@ -1,0 +1,36 @@
+/** Add a new submission to a given workshop. */
+export interface ModWorkshopAddSubmissionParams {
+    /** Workshop id */
+    workshopid: number | null;
+    /** Submission title */
+    title: string | null;
+    /** Submission text content */
+    content?: string | null;
+    /** The format used for the content */
+    contentformat?: number | null;
+    /** The draft file area id for inline attachments in the content */
+    inlineattachmentsid?: number | null;
+    /** The draft file area id for attachments */
+    attachmentsid?: number | null;
+}
+
+export interface ModWorkshopAddSubmissionReturns {
+    /** True if the submission was created false otherwise. */
+    status: boolean | null;
+    /** New workshop submission id. */
+    submissionid?: number | null;
+    /** list of warnings */
+    warnings?: Array<{
+        /** item */
+        item?: string | null;
+        /** item id */
+        itemid?: number | null;
+        /** the warning code can be used by the client app to implement specific behaviour */
+        warningcode: string | null;
+        /** untranslated english message to explain the warning */
+        message: string | null;
+    }>;
+}
+
+export type ModWorkshopAddSubmissionReturn = ModWorkshopAddSubmissionReturns;
+export type mod_workshop_add_submission_returns = ModWorkshopAddSubmissionReturns;

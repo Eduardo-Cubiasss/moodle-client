@@ -72,4 +72,30 @@ describe("MoodleClient Dynamic Method Proxy with Namespaces", () => {
         expect(typeof client.call).toBe("function");
         expect(typeof (client as any).endpoint).toBe("object");
     });
+
+    it("should provide typed default webservice namespace out of the box without casting", async () => {
+        const client = new MoodleClient({
+            rootURL: "https://moodle.example.org",
+            token: "test-token",
+        });
+
+        const callSpy = vi.spyOn(client, "call").mockResolvedValue({
+            data: [{ id: 10, fullname: "Biology 101" }],
+            status: 200,
+            statusText: "OK",
+            ok: true,
+            headers: new Headers(),
+        } as any);
+
+        const response = await client.webservice.core_course_get_courses({
+            options: { ids: [10] },
+        });
+
+        expect(callSpy).toHaveBeenCalledWith(
+            "core_course_get_courses",
+            { options: { ids: [10] } },
+            undefined
+        );
+        expect(response.data[0]?.fullname).toBe("Biology 101");
+    });
 });

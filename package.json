@@ -1,6 +1,6 @@
 {
   "name": "@didactika/moodle-client",
-  "version": "2.3.1",
+  "version": "2.3.5",
   "description": "Typed Moodle web service client with no runtime dependencies, built on native fetch",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -29,7 +29,7 @@
   },
   "scripts": {
     "clean": "rimraf dist",
-    "build": "tsup",
+    "build": "tsup && node scripts/postbuild.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
@@ -74,7 +74,7 @@
   },
   "homepage": "https://github.com/didactika/moodle-client#readme",
   "dependencies": {
-    "@didactika/moodle-client-schemas": "^0.2.1",
+    "@didactika/moodle-client-schemas": "^0.2.3",
     "p-limit": "^7.3.3",
     "tar": "^7.5.22"
   }

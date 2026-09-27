@@ -159,54 +159,69 @@ export async function loadPackageConfig(
         .then(() => true)
         .catch(() => false);
 
-    if (!fileExists) {
-        throw new MoodleGeneratorError({
-            code: "ERR_CONFIG_FILE_NOT_FOUND",
-            title: "package.json Not Found",
-            details: `package.json was not found at '${resolvedPkgPath}'.`,
-            action: "Ensure you are running the command in a project containing a package.json file.",
-        });
-    }
-
-    const rawContent = await fs.readFile(resolvedPkgPath, "utf-8");
     let parsed: PackageJsonWithMoodleClient;
-    try {
-        parsed = JSON.parse(rawContent);
-    } catch (parseErr: unknown) {
-        const errorMsg = parseErr instanceof Error ? parseErr.message : String(parseErr);
-        throw new MoodleGeneratorError({
-            code: "ERR_CONFIG_INVALID_JSON",
-            title: "Invalid package.json File",
-            details: `The package.json file at '${resolvedPkgPath}' contains invalid JSON: ${errorMsg}.`,
-            action: "Fix syntax errors in your package.json.",
-            cause: parseErr,
-        });
+    if (!fileExists) {
+        if (pkgPath) {
+            throw new MoodleGeneratorError({
+                code: "ERR_CONFIG_FILE_NOT_FOUND",
+                title: "package.json Not Found",
+                details: `package.json was not found at '${resolvedPkgPath}'.`,
+                action: "Ensure you are running the command in a project containing a package.json file.",
+            });
+        }
+
+        parsed = {
+            name: "moodle-app",
+            version: "1.0.0",
+            "moodle-client": [
+                {
+                    namespace: "webservice",
+                    source: {
+                        type: "moodle-official",
+                        version: FALLBACK_MOODLE_VERSION,
+                    },
+                    webservices: ["*"],
+                },
+            ],
+        };
+        await fs.writeFile(resolvedPkgPath, JSON.stringify(parsed, null, 2) + "\n", "utf-8");
+    } else {
+        const rawContent = await fs.readFile(resolvedPkgPath, "utf-8");
+        try {
+            parsed = JSON.parse(rawContent);
+        } catch (parseErr: unknown) {
+            const errorMsg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+            throw new MoodleGeneratorError({
+                code: "ERR_CONFIG_INVALID_JSON",
+                title: "Invalid package.json File",
+                details: `The package.json file at '${resolvedPkgPath}' contains invalid JSON: ${errorMsg}.`,
+                action: "Fix syntax errors in your package.json.",
+                cause: parseErr,
+            });
+        }
     }
 
-    const moodleClient = parsed["moodle-client"];
-    if (!moodleClient || !Array.isArray(moodleClient)) {
-        throw new MoodleGeneratorError({
-            code: "ERR_CONFIG_MISSING_MOODLE_CLIENT" as any,
-            title: "Missing 'moodle-client' in package.json",
-            details: "Missing 'moodle-client' configuration in package.json.",
-            action: "Add a 'moodle-client' array with schema configurations to your package.json.",
-        });
+    let moodleClient = parsed["moodle-client"];
+    if (!moodleClient || !Array.isArray(moodleClient) || moodleClient.length === 0) {
+        const defaultEntry: MoodleSchemaConfigEntry = {
+            namespace: "webservice",
+            source: {
+                type: "moodle-official",
+                version: FALLBACK_MOODLE_VERSION,
+            },
+            webservices: ["*"],
+        };
+        moodleClient = [defaultEntry];
+        parsed["moodle-client"] = moodleClient;
+        await fs.writeFile(resolvedPkgPath, JSON.stringify(parsed, null, 2) + "\n", "utf-8");
     }
 
-    if (moodleClient.length === 0) {
-        throw new MoodleGeneratorError({
-            code: "ERR_CONFIG_EMPTY_MOODLE_CLIENT" as any,
-            title: "Empty 'moodle-client' Configuration",
-            details: "'moodle-client' in package.json must contain at least one configuration.",
-            action: "Add at least one configuration entry to 'moodle-client' in package.json.",
-        });
-    }
-
+    const clientConfigs: MoodleSchemaConfigEntry[] = moodleClient;
     const seenNamespaces = new Set<string>();
     const resolvedConfigs: MoodleSchemaConfigEntry[] = [];
 
-    for (let i = 0; i < moodleClient.length; i++) {
-        const entry = moodleClient[i];
+    for (let i = 0; i < clientConfigs.length; i++) {
+        const entry = clientConfigs[i];
         if (!entry || typeof entry !== "object") {
             throw new MoodleGeneratorError({
                 code: "ERR_CONFIG_INVALID_ENTRY" as any,

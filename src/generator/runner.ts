@@ -33,7 +33,34 @@ function toPascalCase(str: string): string {
 }
 
 /**
- * Checks if a given directory exists and contains webservice schema files.
+ * Recursively checks if a directory contains at least one .webservice.d.ts file.
+ */
+async function containsWebserviceFilesRecursively(dir: string): Promise<boolean> {
+    try {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                const found = await containsWebserviceFilesRecursively(fullPath);
+                if (found) {
+                    return true;
+                }
+            } else if (
+                entry.name.endsWith(".webservice.d.ts") ||
+                entry.name.endsWith(".webservice-client.d.ts")
+            ) {
+                return true;
+            }
+        }
+        return false;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Checks if a given directory exists and contains valid webservice schema files.
+ * Requires both a non-empty index.d.ts and at least one .webservice.d.ts file in its tree.
  */
 export async function hasExistingSchemas(dir: string): Promise<boolean> {
     try {
@@ -41,17 +68,68 @@ export async function hasExistingSchemas(dir: string): Promise<boolean> {
         if (!stat.isDirectory()) {
             return false;
         }
-        const entries = await fs.readdir(dir);
-        if (entries.includes("index.ts") || entries.includes("index.d.ts")) {
-            return true;
+
+        // 1. Verify index.d.ts exists and is not empty (0 bytes)
+        const indexPath = path.join(dir, "index.d.ts");
+        try {
+            const indexStat = await fs.stat(indexPath);
+            if (indexStat.size === 0) {
+                return false;
+            }
+        } catch {
+            return false;
         }
-        return entries.some(
-            (e) =>
-                e.endsWith(".webservice-client.ts") ||
-                e.endsWith(".webservice-client.d.ts") ||
-                e.endsWith(".webservice.ts") ||
-                e.endsWith(".webservice.d.ts")
-        );
+
+        // 2. Recursively verify at least one .webservice.d.ts file exists
+        return await containsWebserviceFilesRecursively(dir);
+    } catch {
+        return false;
+    }
+}
+
+function isGeneratorOwnedFile(filename: string): boolean {
+    return (
+        filename.endsWith(".webservice.d.ts") ||
+        filename.endsWith(".webservice.ts") ||
+        filename.endsWith(".webservice-client.d.ts") ||
+        filename.endsWith(".webservice-client.ts") ||
+        filename === "index.d.ts" ||
+        filename === "index.d.mts" ||
+        filename === "index.ts" ||
+        filename === "index.js" ||
+        filename === "index.mjs" ||
+        filename === "index.js.map" ||
+        filename === "index.mjs.map"
+    );
+}
+
+/**
+ * Selectively deletes generated webservice files and barrels from a namespace directory,
+ * pruning empty subdirectories bottom-up while strictly preserving user files.
+ */
+export async function selectiveCleanNamespace(dir: string, isRoot = true): Promise<boolean> {
+    try {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                const canRemove = await selectiveCleanNamespace(fullPath, false);
+                if (canRemove) {
+                    try {
+                        await fs.rmdir(fullPath);
+                    } catch {
+                        // Directory not empty
+                    }
+                }
+            } else if (entry.isFile() && isGeneratorOwnedFile(entry.name)) {
+                await fs.unlink(fullPath);
+            }
+        }
+        if (!isRoot) {
+            const remaining = await fs.readdir(dir);
+            return remaining.length === 0;
+        }
+        return false;
     } catch {
         return false;
     }
@@ -71,12 +149,9 @@ async function copyDir(src: string, dest: string): Promise<number> {
 
         if (entry.isDirectory()) {
             count += await copyDir(srcPath, destPath);
-        } else if (entry.name.endsWith(".d.ts") || entry.name.endsWith(".ts")) {
+        } else if (entry.name.endsWith(".d.ts")) {
             const content = await fs.readFile(srcPath, "utf-8");
-            const dtsPath = destPath.endsWith(".d.ts")
-                ? destPath
-                : destPath.replace(/\.ts$/, ".d.ts");
-            await fs.writeFile(dtsPath, content, "utf-8");
+            await fs.writeFile(destPath, content, "utf-8");
             count++;
         }
     }
@@ -142,7 +217,7 @@ async function ensurePackageDeclarationExports(pkgDir: string): Promise<void> {
  * so methods are exclusively exposed through their namespace.
  */
 async function stripDirectModuleAugmentation(dir: string): Promise<void> {
-    for (const filename of ["index.d.ts", "index.d.mts", "index.ts"]) {
+    for (const filename of ["index.d.ts", "index.d.mts"]) {
         const filePath = path.join(dir, filename);
         if (existsSync(filePath)) {
             try {
@@ -244,7 +319,8 @@ async function generateMasterBarrel(
             try {
                 await fs.mkdir(outDirPath, { recursive: true });
                 await fs.writeFile(path.join(outDirPath, "index.d.ts"), masterDts, "utf-8");
-                await fs.writeFile(path.join(outDirPath, "index.ts"), masterDts, "utf-8");
+                await fs.rm(path.join(outDirPath, "index.d.mts"), { force: true });
+                await fs.rm(path.join(outDirPath, "index.ts"), { force: true });
             } catch {
                 // Ignore
             }
@@ -275,6 +351,32 @@ export async function runGenerator(
     const createLimit = typeof pLimit === "function" ? pLimit : (pLimit as any).default;
     const limit = createLimit(2);
 
+    // Check for unmanaged directories in outDir and inform user
+    if (configDir) {
+        const configuredNamespaces = new Set(configs.map((c) => c.namespace));
+        const uniqueOutDirs = new Set<string>();
+        for (const entry of configs) {
+            if (entry.outDir) {
+                uniqueOutDirs.add(path.resolve(configDir, entry.outDir));
+            }
+        }
+        for (const outDirPath of uniqueOutDirs) {
+            try {
+                const entries = await fs.readdir(outDirPath, { withFileTypes: true });
+                for (const entry of entries) {
+                    if (entry.isDirectory() && !configuredNamespaces.has(entry.name)) {
+                        logInfo(
+                            `[moodle-client] Info: Directory '${entry.name}' in '${outDirPath}' is not a configured schema namespace. Preserving untouched.`,
+                            options?.silent
+                        );
+                    }
+                }
+            } catch {
+                // Ignore if outDir doesn't exist yet
+            }
+        }
+    }
+
     const processSingleSchema = async (entry: MoodleSchemaConfigEntry) => {
         const nsDistDir = path.join(targetSchemasDir, entry.namespace);
         const nsProjectOutDir = entry.outDir
@@ -302,6 +404,34 @@ export async function runGenerator(
                 );
                 return;
             }
+        }
+
+        // Check if internal package schemas already exist and force is not set (no outDir mode)
+        if (!nsProjectOutDir && !force) {
+            const existsInDist = await hasExistingSchemas(nsDistDir);
+            const srcSchemasNsDir = path.join(pkgDir, "src/schemas", entry.namespace);
+            const existsInSrc = await hasExistingSchemas(srcSchemasNsDir);
+
+            if (existsInDist || existsInSrc) {
+                if (!existsInDist && existsInSrc) {
+                    await fs.mkdir(nsDistDir, { recursive: true });
+                    await copyDir(srcSchemasNsDir, nsDistDir);
+                    await fs.writeFile(path.join(nsDistDir, "index.js"), "export {};\n", "utf-8");
+                    await fs.writeFile(path.join(nsDistDir, "index.mjs"), "export {};\n", "utf-8");
+                    await ensureDtsMtsSync(nsDistDir);
+                }
+                logInfo(
+                    `[moodle-client] Schemas already exist in '@didactika/moodle-client' for namespace '${entry.namespace}'. Generation skipped.`,
+                    options?.silent
+                );
+                return;
+            }
+        }
+
+        // Clean stale webservices while strictly preserving user files
+        if (nsProjectOutDir) {
+            await fs.mkdir(nsProjectOutDir, { recursive: true });
+            await selectiveCleanNamespace(nsProjectOutDir);
         }
 
         // Full extraction & generation
@@ -363,7 +493,7 @@ export async function runGenerator(
                     { importSource: "@didactika/moodle-client" }
                 );
                 await stripDirectModuleAugmentation(nsProjectOutDir);
-                await ensureDtsMtsSync(nsProjectOutDir);
+                await fs.rm(path.join(nsProjectOutDir, "index.d.mts"), { force: true });
             }
 
             // 3. If developing in moodle-client repository, also update src/schemas/{namespace}
