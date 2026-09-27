@@ -138,12 +138,52 @@ async function ensurePackageDeclarationExports(pkgDir: string): Promise<void> {
 }
 
 /**
+ * Strips direct MoodleClient module augmentation from sub-barrels
+ * so methods are exclusively exposed through their namespace.
+ */
+async function stripDirectModuleAugmentation(dir: string): Promise<void> {
+    for (const filename of ["index.d.ts", "index.d.mts", "index.ts"]) {
+        const filePath = path.join(dir, filename);
+        if (existsSync(filePath)) {
+            try {
+                let content = await fs.readFile(filePath, "utf-8");
+                content = content.replace(
+                    /\n*declare module ["']@didactika\/moodle-client["']\s*\{\s*interface MoodleClient extends GeneratedMoodleServices\s*\{\}\s*\}[\s\n]*$/,
+                    "\n"
+                );
+                await fs.writeFile(filePath, content, "utf-8");
+            } catch {
+                // Ignore
+            }
+        }
+    }
+}
+
+/**
+ * Ensures index.d.mts exists alongside index.d.ts with identical content
+ * for full compatibility with ESM/NodeNext module resolution.
+ */
+async function ensureDtsMtsSync(dir: string): Promise<void> {
+    const dtsPath = path.join(dir, "index.d.ts");
+    const dmtsPath = path.join(dir, "index.d.mts");
+    if (existsSync(dtsPath)) {
+        try {
+            const content = await fs.readFile(dtsPath, "utf-8");
+            await fs.writeFile(dmtsPath, content, "utf-8");
+        } catch {
+            // Ignore
+        }
+    }
+}
+
+/**
  * Generates the master barrel dist/schemas/index.d.ts that aggregates all schema namespaces.
  */
 async function generateMasterBarrel(
     targetSchemasDir: string,
     configs: MoodleSchemaConfigEntry[],
-    pkgDir: string
+    pkgDir: string,
+    configDir?: string
 ): Promise<void> {
     let masterDts = `/**\n * Master barrel for generated Moodle services namespaces.\n */\n`;
 
@@ -152,9 +192,21 @@ async function generateMasterBarrel(
         masterDts += `import type { GeneratedMoodleServices as ${typeName} } from "./${entry.namespace}/index";\n`;
     }
 
+    masterDts += `\nexport type {\n`;
+    for (const entry of configs) {
+        const typeName = `${toPascalCase(entry.namespace)}GeneratedServices`;
+        masterDts += `    ${typeName},\n`;
+    }
+    masterDts += `};\n`;
+
     masterDts += `\nexport interface GeneratedMoodleServices {\n`;
     for (const entry of configs) {
         const typeName = `${toPascalCase(entry.namespace)}GeneratedServices`;
+        const sourceDesc =
+            entry.source.type === "local"
+                ? `local (${entry.source.path})`
+                : `moodle-official (v${entry.source.version})`;
+        masterDts += `    /**\n     * Moodle web services namespace '${entry.namespace}'.\n     * Source: ${sourceDesc}\n     */\n`;
         masterDts += `    ${entry.namespace}: ${typeName};\n`;
     }
     masterDts += `}\n\n`;
@@ -165,16 +217,37 @@ async function generateMasterBarrel(
 
     await fs.mkdir(targetSchemasDir, { recursive: true });
     await fs.writeFile(path.join(targetSchemasDir, "index.d.ts"), masterDts, "utf-8");
+    await fs.writeFile(path.join(targetSchemasDir, "index.d.mts"), masterDts, "utf-8");
     await fs.writeFile(path.join(targetSchemasDir, "index.js"), "export {};\n", "utf-8");
     await fs.writeFile(path.join(targetSchemasDir, "index.mjs"), "export {};\n", "utf-8");
 
-    // Also update src/schemas/index.d.ts if developing in moodle-client repo
+    // Also update src/schemas if developing in moodle-client repo
     const srcSchemasDir = path.join(pkgDir, "src/schemas");
     if (existsSync(srcSchemasDir)) {
         try {
             await fs.writeFile(path.join(srcSchemasDir, "index.d.ts"), masterDts, "utf-8");
+            await fs.writeFile(path.join(srcSchemasDir, "index.d.mts"), masterDts, "utf-8");
         } catch {
             // Ignore
+        }
+    }
+
+    // Also write master barrel to outDir root if configured
+    if (configDir) {
+        const uniqueOutDirs = new Set<string>();
+        for (const entry of configs) {
+            if (entry.outDir) {
+                uniqueOutDirs.add(path.resolve(configDir, entry.outDir));
+            }
+        }
+        for (const outDirPath of uniqueOutDirs) {
+            try {
+                await fs.mkdir(outDirPath, { recursive: true });
+                await fs.writeFile(path.join(outDirPath, "index.d.ts"), masterDts, "utf-8");
+                await fs.writeFile(path.join(outDirPath, "index.ts"), masterDts, "utf-8");
+            } catch {
+                // Ignore
+            }
         }
     }
 }
@@ -220,6 +293,8 @@ export async function runGenerator(
                 const count = await copyDir(nsProjectOutDir, nsDistDir);
                 await fs.writeFile(path.join(nsDistDir, "index.js"), "export {};\n", "utf-8");
                 await fs.writeFile(path.join(nsDistDir, "index.mjs"), "export {};\n", "utf-8");
+                await stripDirectModuleAugmentation(nsDistDir);
+                await ensureDtsMtsSync(nsDistDir);
 
                 logInfo(
                     `[moodle-client] Synchronized ${count} schemas from '${entry.outDir}/${entry.namespace}' to '@didactika/moodle-client'.`,
@@ -276,6 +351,8 @@ export async function runGenerator(
             );
             await fs.writeFile(path.join(nsDistDir, "index.js"), "export {};\n", "utf-8");
             await fs.writeFile(path.join(nsDistDir, "index.mjs"), "export {};\n", "utf-8");
+            await stripDirectModuleAugmentation(nsDistDir);
+            await ensureDtsMtsSync(nsDistDir);
 
             // 2. If outDir is specified, also generate files into outDir/{namespace}
             if (nsProjectOutDir) {
@@ -285,6 +362,8 @@ export async function runGenerator(
                     nsProjectOutDir,
                     { importSource: "@didactika/moodle-client" }
                 );
+                await stripDirectModuleAugmentation(nsProjectOutDir);
+                await ensureDtsMtsSync(nsProjectOutDir);
             }
 
             // 3. If developing in moodle-client repository, also update src/schemas/{namespace}
@@ -298,6 +377,8 @@ export async function runGenerator(
                         srcSchemasNsDir,
                         { importSource: "@didactika/moodle-client" }
                     );
+                    await stripDirectModuleAugmentation(srcSchemasNsDir);
+                    await ensureDtsMtsSync(srcSchemasNsDir);
                 } catch {
                     // Ignore dev directory copy error
                 }
@@ -325,7 +406,7 @@ export async function runGenerator(
     await Promise.all(configs.map((entry) => limit(() => processSingleSchema(entry))));
 
     // Generate aggregated master barrel
-    await generateMasterBarrel(targetSchemasDir, configs, pkgDir);
+    await generateMasterBarrel(targetSchemasDir, configs, pkgDir, configDir);
     await ensurePackageDeclarationExports(pkgDir);
 
     logInfo(
