@@ -122,17 +122,37 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
         expect(await fs.access(legacyIndex).then(() => true).catch(() => false)).toBe(true);
         expect(await fs.access(defaultIndex).then(() => true).catch(() => false)).toBe(true);
 
-        // Verify master barrel inside dist/schemas/index.d.ts exports namespaces
+        // Verify master barrel inside dist/schemas/index.d.ts exports namespaces with JSDocs
         const masterBarrel = await fs.readFile(path.join(targetSchemasDir, "index.d.ts"), "utf-8");
         expect(masterBarrel).toContain("legacy:");
         expect(masterBarrel).toContain("default:");
         expect(masterBarrel).toContain("export interface GeneratedMoodleServices");
+        expect(masterBarrel).toContain("Moodle web services namespace 'legacy'.");
+        expect(masterBarrel).toContain("Moodle web services namespace 'default'.");
+        expect(masterBarrel).toContain("LegacyGeneratedServices");
+        expect(masterBarrel).toContain("DefaultGeneratedServices");
+
+        // Verify index.d.mts exists in master barrel and in sub-barrels
+        const masterBarrelMts = path.join(targetSchemasDir, "index.d.mts");
+        expect(await fs.access(masterBarrelMts).then(() => true).catch(() => false)).toBe(true);
+        const legacyMts = path.join(targetSchemasDir, "legacy/index.d.mts");
+        expect(await fs.access(legacyMts).then(() => true).catch(() => false)).toBe(true);
+
+        // Verify sub-barrels do NOT contain direct MoodleClient module augmentation
+        const legacyContent = await fs.readFile(legacyIndex, "utf-8");
+        expect(legacyContent).not.toContain('declare module "@didactika/moodle-client"');
 
         // Verify output directories in project outDir/[name]/
         const outDirLegacy = path.join(tempDir, "schemas/local/legacy/index.d.ts");
         const outDirDefault = path.join(tempDir, "schemas/v4.4/default/index.d.ts");
         expect(await fs.access(outDirLegacy).then(() => true).catch(() => false)).toBe(true);
         expect(await fs.access(outDirDefault).then(() => true).catch(() => false)).toBe(true);
+
+        // Verify outDir root master barrel
+        const outDirMasterDts = path.join(tempDir, "schemas/local/index.d.ts");
+        const outDirMasterTs = path.join(tempDir, "schemas/local/index.ts");
+        expect(await fs.access(outDirMasterDts).then(() => true).catch(() => false)).toBe(true);
+        expect(await fs.access(outDirMasterTs).then(() => true).catch(() => false)).toBe(true);
     });
 
     it("should skip extraction and sync existing schemas when outDir/[name] already contains schemas and force is false", async () => {
