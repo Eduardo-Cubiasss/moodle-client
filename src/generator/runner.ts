@@ -2,13 +2,17 @@ import fs from "fs/promises";
 import { existsSync, readFileSync } from "fs";
 import path from "path";
 import os from "os";
+import pLimit from "p-limit";
 import {
     extractWebservice,
     generateWebserviceFiles,
     WebServiceSchema,
     mapExtractionErrorToGeneratorError,
 } from "@didactika/moodle-client-schemas";
-import { loadOrCreateConfig, DEFAULT_CONFIG_FILENAME } from "./config/config-manager";
+import {
+    loadPackageConfig,
+    MoodleSchemaConfigEntry,
+} from "./config/config-manager";
 import { cloneMoodleVersion, cleanupMoodleDirectory } from "./downloader/moodle-downloader";
 
 export interface RunGeneratorOptions {
@@ -20,6 +24,12 @@ function logInfo(message: string, silent?: boolean): void {
     if (!silent) {
         console.log(message);
     }
+}
+
+function toPascalCase(str: string): string {
+    return str
+        .replace(/[-_](\w)/g, (_, c) => c.toUpperCase())
+        .replace(/^\w/, (c) => c.toUpperCase());
 }
 
 /**
@@ -36,7 +46,11 @@ export async function hasExistingSchemas(dir: string): Promise<boolean> {
             return true;
         }
         return entries.some(
-            (e) => e.endsWith(".webservice-client.ts") || e.endsWith(".webservice-client.d.ts")
+            (e) =>
+                e.endsWith(".webservice-client.ts") ||
+                e.endsWith(".webservice-client.d.ts") ||
+                e.endsWith(".webservice.ts") ||
+                e.endsWith(".webservice.d.ts")
         );
     } catch {
         return false;
@@ -124,8 +138,50 @@ async function ensurePackageDeclarationExports(pkgDir: string): Promise<void> {
 }
 
 /**
+ * Generates the master barrel dist/schemas/index.d.ts that aggregates all schema namespaces.
+ */
+async function generateMasterBarrel(
+    targetSchemasDir: string,
+    configs: MoodleSchemaConfigEntry[],
+    pkgDir: string
+): Promise<void> {
+    let masterDts = `/**\n * Master barrel for generated Moodle services namespaces.\n */\n`;
+
+    for (const entry of configs) {
+        const typeName = `${toPascalCase(entry.namespace)}GeneratedServices`;
+        masterDts += `import type { GeneratedMoodleServices as ${typeName} } from "./${entry.namespace}/index";\n`;
+    }
+
+    masterDts += `\nexport interface GeneratedMoodleServices {\n`;
+    for (const entry of configs) {
+        const typeName = `${toPascalCase(entry.namespace)}GeneratedServices`;
+        masterDts += `    ${entry.namespace}: ${typeName};\n`;
+    }
+    masterDts += `}\n\n`;
+
+    masterDts += `declare module "@didactika/moodle-client" {\n`;
+    masterDts += `    interface MoodleClient extends GeneratedMoodleServices {}\n`;
+    masterDts += `}\n`;
+
+    await fs.mkdir(targetSchemasDir, { recursive: true });
+    await fs.writeFile(path.join(targetSchemasDir, "index.d.ts"), masterDts, "utf-8");
+    await fs.writeFile(path.join(targetSchemasDir, "index.js"), "export {};\n", "utf-8");
+    await fs.writeFile(path.join(targetSchemasDir, "index.mjs"), "export {};\n", "utf-8");
+
+    // Also update src/schemas/index.d.ts if developing in moodle-client repo
+    const srcSchemasDir = path.join(pkgDir, "src/schemas");
+    if (existsSync(srcSchemasDir)) {
+        try {
+            await fs.writeFile(path.join(srcSchemasDir, "index.d.ts"), masterDts, "utf-8");
+        } catch {
+            // Ignore
+        }
+    }
+}
+
+/**
  * Executes the complete web service generation and storage pipeline for Moodle client.
- * Schemas are stored directly inside @didactika/moodle-client and in outDir when configured.
+ * Schemas are stored in dist/schemas/{namespace}/ and [outDir]/{namespace}/.
  */
 export async function runGenerator(
     configPath?: string,
@@ -133,126 +189,147 @@ export async function runGenerator(
 ): Promise<void> {
     const resolvedConfigPath = configPath
         ? path.resolve(configPath)
-        : path.resolve(process.cwd(), DEFAULT_CONFIG_FILENAME);
+        : path.resolve(process.cwd(), "package.json");
     const configDir = path.dirname(resolvedConfigPath);
 
-    const config = await loadOrCreateConfig(configPath);
+    const configs = await loadPackageConfig(configPath);
     const pkgDir = findMoodleClientPackageDir();
     const targetSchemasDir = path.join(pkgDir, "dist/schemas");
 
     const force = Boolean(options?.force);
 
-    // If outDir is specified and force is NOT set:
-    if (config.outDir && !force) {
-        const resolvedOutDir = path.resolve(configDir, config.outDir);
-        const existsWithSchemas = await hasExistingSchemas(resolvedOutDir);
+    // Concurrency limit of 2 as specified
+    const createLimit = typeof pLimit === "function" ? pLimit : (pLimit as any).default;
+    const limit = createLimit(2);
 
-        if (existsWithSchemas) {
-            logInfo(
-                `[moodle-client] Schemas already exist in '${config.outDir}'. Generation skipped.`,
-                options?.silent
-            );
-            await fs.rm(targetSchemasDir, { recursive: true, force: true });
-            const count = await copyDir(resolvedOutDir, targetSchemasDir);
-            await fs.writeFile(path.join(targetSchemasDir, "index.js"), "export {};\n", "utf-8");
-            await fs.writeFile(path.join(targetSchemasDir, "index.mjs"), "export {};\n", "utf-8");
-            await ensurePackageDeclarationExports(pkgDir);
+    const processSingleSchema = async (entry: MoodleSchemaConfigEntry) => {
+        const nsDistDir = path.join(targetSchemasDir, entry.namespace);
+        const nsProjectOutDir = entry.outDir
+            ? path.resolve(configDir, entry.outDir, entry.namespace)
+            : undefined;
 
-            logInfo(
-                `[moodle-client] Synchronized ${count} schemas from '${config.outDir}' to '@didactika/moodle-client'.`,
-                options?.silent
-            );
-            logInfo(
-                `[moodle-client] You can import types and clients directly: import { MoodleClient } from "@didactika/moodle-client";`,
-                options?.silent
-            );
-            return;
-        }
-    }
-
-    // Otherwise, perform full extraction and generation
-    let targetMoodlePath = config.moodlePath;
-    let shouldCleanup = false;
-
-    if (!targetMoodlePath) {
-        const tempCloneDir = path.join(os.tmpdir(), `moodle-v${config.version}-${Date.now()}`);
-        targetMoodlePath = await cloneMoodleVersion(config.version, tempCloneDir);
-        shouldCleanup = true;
-    }
-
-    try {
-        const result = await extractWebservice({
-            moodlePath: targetMoodlePath,
-            services: config.webservices,
-            concurrency: config.concurrency ?? 8,
-        });
-
-        if (result.errors && result.errors.length > 0) {
-            for (const err of result.errors) {
-                console.error(
-                    `[moodle-client] Extraction error: [${err.code}] ${
-                        err.serviceName ? `(${err.serviceName}) ` : ""
-                    }${err.message}`
+        // Check if outDir cache already exists and force is not set
+        if (nsProjectOutDir && !force) {
+            const existsWithSchemas = await hasExistingSchemas(nsProjectOutDir);
+            if (existsWithSchemas) {
+                logInfo(
+                    `[moodle-client] Schemas already exist in '${entry.outDir}/${entry.namespace}'. Generation skipped.`,
+                    options?.silent
                 );
-            }
-            if (result.schemas.length === 0 && result.errors[0]) {
-                throw mapExtractionErrorToGeneratorError(result.errors[0], targetMoodlePath);
+                await fs.rm(nsDistDir, { recursive: true, force: true });
+                const count = await copyDir(nsProjectOutDir, nsDistDir);
+                await fs.writeFile(path.join(nsDistDir, "index.js"), "export {};\n", "utf-8");
+                await fs.writeFile(path.join(nsDistDir, "index.mjs"), "export {};\n", "utf-8");
+
+                logInfo(
+                    `[moodle-client] Synchronized ${count} schemas from '${entry.outDir}/${entry.namespace}' to '@didactika/moodle-client'.`,
+                    options?.silent
+                );
+                return;
             }
         }
 
-        // 1. Generate files directly into package's dist/schemas (node_modules)
-        await generateWebserviceFiles(
-            result.schemas as WebServiceSchema[],
-            targetSchemasDir,
-            { importSource: "@didactika/moodle-client" }
-        );
-        await fs.writeFile(path.join(targetSchemasDir, "index.js"), "export {};\n", "utf-8");
-        await fs.writeFile(path.join(targetSchemasDir, "index.mjs"), "export {};\n", "utf-8");
+        // Full extraction & generation
+        let targetMoodlePath: string | undefined;
+        let shouldCleanup = false;
 
-        // 2. If outDir is specified, also generate files into outDir
-        if (config.outDir) {
-            const resolvedOutDir = path.resolve(configDir, config.outDir);
+        if (entry.source.type === "local") {
+            const rawPath = entry.source.path;
+            targetMoodlePath = rawPath.startsWith("~/")
+                ? path.join(os.homedir(), rawPath.slice(2))
+                : path.resolve(configDir, rawPath);
+        } else {
+            const tempCloneDir = path.join(
+                os.tmpdir(),
+                `moodle-v${entry.source.version}-${entry.namespace}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+            );
+            targetMoodlePath = await cloneMoodleVersion(entry.source.version, tempCloneDir);
+            shouldCleanup = true;
+        }
+
+        try {
+            const result = await extractWebservice({
+                moodlePath: targetMoodlePath,
+                services: entry.webservices,
+                concurrency: entry.concurrency ?? 8,
+            });
+
+            if (result.errors && result.errors.length > 0) {
+                for (const err of result.errors) {
+                    console.error(
+                        `[moodle-client] [${entry.namespace}] Extraction error: [${err.code}] ${
+                            err.serviceName ? `(${err.serviceName}) ` : ""
+                        }${err.message}`
+                    );
+                }
+                if (result.schemas.length === 0 && result.errors[0]) {
+                    throw mapExtractionErrorToGeneratorError(result.errors[0], targetMoodlePath);
+                }
+            }
+
+            // 1. Generate files directly into package's dist/schemas/{namespace}
+            await fs.mkdir(nsDistDir, { recursive: true });
             await generateWebserviceFiles(
                 result.schemas as WebServiceSchema[],
-                resolvedOutDir,
+                nsDistDir,
                 { importSource: "@didactika/moodle-client" }
             );
-        }
+            await fs.writeFile(path.join(nsDistDir, "index.js"), "export {};\n", "utf-8");
+            await fs.writeFile(path.join(nsDistDir, "index.mjs"), "export {};\n", "utf-8");
 
-        // 3. If developing in moodle-client repository, also update src/schemas
-        const srcSchemasDir = path.join(pkgDir, "src/schemas");
-        if (existsSync(srcSchemasDir)) {
-            try {
+            // 2. If outDir is specified, also generate files into outDir/{namespace}
+            if (nsProjectOutDir) {
+                await fs.mkdir(nsProjectOutDir, { recursive: true });
                 await generateWebserviceFiles(
                     result.schemas as WebServiceSchema[],
-                    srcSchemasDir,
+                    nsProjectOutDir,
                     { importSource: "@didactika/moodle-client" }
                 );
-            } catch {
-                // Ignore dev directory copy error
+            }
+
+            // 3. If developing in moodle-client repository, also update src/schemas/{namespace}
+            const srcSchemasNsDir = path.join(pkgDir, "src/schemas", entry.namespace);
+            const srcSchemasRootDir = path.join(pkgDir, "src/schemas");
+            if (existsSync(srcSchemasRootDir)) {
+                try {
+                    await fs.mkdir(srcSchemasNsDir, { recursive: true });
+                    await generateWebserviceFiles(
+                        result.schemas as WebServiceSchema[],
+                        srcSchemasNsDir,
+                        { importSource: "@didactika/moodle-client" }
+                    );
+                } catch {
+                    // Ignore dev directory copy error
+                }
+            }
+
+            if (entry.outDir) {
+                logInfo(
+                    `[moodle-client] Successfully generated ${result.schemas.length} webservices for '${entry.namespace}' into '${entry.outDir}/${entry.namespace}' and '@didactika/moodle-client'.`,
+                    options?.silent
+                );
+            } else {
+                logInfo(
+                    `[moodle-client] Successfully generated ${result.schemas.length} webservices for '${entry.namespace}' into '@didactika/moodle-client'.`,
+                    options?.silent
+                );
+            }
+        } finally {
+            if (shouldCleanup && targetMoodlePath) {
+                await cleanupMoodleDirectory(targetMoodlePath);
             }
         }
+    };
 
-        await ensurePackageDeclarationExports(pkgDir);
+    // Execute concurrently with p-limit(2)
+    await Promise.all(configs.map((entry) => limit(() => processSingleSchema(entry))));
 
-        if (config.outDir) {
-            logInfo(
-                `[moodle-client] Successfully generated ${result.schemas.length} webservices into '${config.outDir}' and '@didactika/moodle-client'.`,
-                options?.silent
-            );
-        } else {
-            logInfo(
-                `[moodle-client] Successfully generated ${result.schemas.length} webservices into '@didactika/moodle-client'.`,
-                options?.silent
-            );
-        }
-        logInfo(
-            `[moodle-client] You can import types and clients directly: import { MoodleClient } from "@didactika/moodle-client";`,
-            options?.silent
-        );
-    } finally {
-        if (shouldCleanup && targetMoodlePath) {
-            await cleanupMoodleDirectory(targetMoodlePath);
-        }
-    }
+    // Generate aggregated master barrel
+    await generateMasterBarrel(targetSchemasDir, configs, pkgDir);
+    await ensurePackageDeclarationExports(pkgDir);
+
+    logInfo(
+        `[moodle-client] You can import types and clients directly: import { MoodleClient } from "@didactika/moodle-client";`,
+        options?.silent
+    );
 }

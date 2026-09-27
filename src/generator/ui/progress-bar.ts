@@ -30,10 +30,10 @@ export function buildBox(lines: string[]): string[] {
 function printUsageInstructions(): void {
     const lines = [
         "You can now call generated web services directly from your",
-        "MoodleClient instance:",
+        "MoodleClient instance using configured namespaces:",
         "",
         '  const moodle = new MoodleClient({ rootURL: "...", token: "..." });',
-        "  const { data } = await moodle.core_course_get_courses({ ... });",
+        "  const { data } = await moodle.<namespace>.core_course_get_courses({ ... });",
     ];
     console.log(buildBox(lines).join("\n") + "\n");
 }

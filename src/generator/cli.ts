@@ -37,4 +37,7 @@ async function main(): Promise<void> {
     }
 }
 
-main();
+if (!process.env.VITEST) {
+    main();
+}
+
