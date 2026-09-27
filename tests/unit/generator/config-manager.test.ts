@@ -148,28 +148,50 @@ describe("ConfigManager - package.json Configuration", () => {
         );
     });
 
-    it("should throw ERR_CONFIG_MISSING_MOODLE_CLIENT when package.json does not contain moodle-client", async () => {
+    it("should auto-generate default configuration in package.json when moodle-client is missing", async () => {
         const pkgContent = {
             name: "test-app",
             version: "1.0.0",
         };
         await fs.writeFile(pkgJsonPath, JSON.stringify(pkgContent, null, 2), "utf-8");
 
-        await expect(loadPackageConfig(pkgJsonPath)).rejects.toThrowError(
-            /Missing 'moodle-client' configuration in package.json/
-        );
+        const configs = await loadPackageConfig(pkgJsonPath);
+        expect(configs).toHaveLength(1);
+        expect(configs[0].namespace).toBe("webservice");
+        expect(configs[0].source.type).toBe("moodle-official");
+        expect((configs[0].source as any).version).toBe("4.5");
+        expect(configs[0].webservices).toEqual(["*"]);
+        expect(configs[0].outDir).toBeUndefined();
+
+        const writtenContent = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"));
+        expect(writtenContent["moodle-client"]).toBeDefined();
+        expect(writtenContent["moodle-client"]).toEqual([
+            {
+                namespace: "webservice",
+                source: {
+                    type: "moodle-official",
+                    version: "4.5",
+                },
+                webservices: ["*"],
+            },
+        ]);
     });
 
-    it("should throw ERR_CONFIG_EMPTY_MOODLE_CLIENT when moodle-client array is empty", async () => {
+    it("should auto-generate default configuration in package.json when moodle-client array is empty", async () => {
         const pkgContent = {
             name: "test-app",
             "moodle-client": [],
         };
         await fs.writeFile(pkgJsonPath, JSON.stringify(pkgContent, null, 2), "utf-8");
 
-        await expect(loadPackageConfig(pkgJsonPath)).rejects.toThrowError(
-            /'moodle-client' in package.json must contain at least one configuration/
-        );
+        const configs = await loadPackageConfig(pkgJsonPath);
+        expect(configs).toHaveLength(1);
+        expect(configs[0].namespace).toBe("webservice");
+        expect(configs[0].outDir).toBeUndefined();
+
+        const writtenContent = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"));
+        expect(writtenContent["moodle-client"]).toHaveLength(1);
+        expect(writtenContent["moodle-client"][0].namespace).toBe("webservice");
     });
 
     it("should throw on invalid JSON syntax in package.json", async () => {

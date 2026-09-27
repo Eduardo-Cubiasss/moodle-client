@@ -7,4 +7,8 @@ tmp/
 .idea/
 src/schemas/*
 !src/schemas/index.ts
+!src/schemas/index.d.ts
+!src/schemas/index.d.mts
+!src/schemas/webservice
+!src/schemas/webservice/**
 moodle-client.config.json

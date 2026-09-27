@@ -1,6 +1,17 @@
 /**
- * Default empty GeneratedMoodleServices interface.
- * When webservices are generated via `npx moodle-generate-schemas`, this interface is populated
- * with typed methods corresponding to configured Moodle Web Services.
+ * Master barrel for generated Moodle services namespaces.
  */
-export interface GeneratedMoodleServices {}
+import type { GeneratedMoodleServices as WebserviceGeneratedServices } from "./webservice/index";
+
+export type {
+    WebserviceGeneratedServices,
+};
+
+export interface GeneratedMoodleServices {
+    /**
+     * Moodle web services namespace 'webservice'.
+     * Source: moodle-official (v4.5)
+     */
+    webservice: WebserviceGeneratedServices;
+}
+
