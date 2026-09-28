@@ -274,13 +274,18 @@ async function generateMasterBarrel(
     }
     masterDts += `};\n`;
 
+    masterDts += `\n// Namespace type barrels\n`;
+    for (const entry of configs) {
+        masterDts += `export type * as ${entry.namespace} from "./${entry.namespace}/index";\n`;
+    }
+
     masterDts += `\nexport interface GeneratedMoodleServices {\n`;
     for (const entry of configs) {
         const typeName = `${toPascalCase(entry.namespace)}GeneratedServices`;
         const sourceDesc =
             entry.source.type === "local"
                 ? `local (${entry.source.path})`
-                : `moodle-official (v${entry.source.version})`;
+                : `moodle (v${entry.source.version})`;
         masterDts += `    /**\n     * Moodle web services namespace '${entry.namespace}'.\n     * Source: ${sourceDesc}\n     */\n`;
         masterDts += `    ${entry.namespace}: ${typeName};\n`;
     }

@@ -10,7 +10,7 @@ export type {
 export interface GeneratedMoodleServices {
     /**
      * Moodle web services namespace 'webservice'.
-     * Source: moodle-official (v4.5)
+     * Source: moodle (v4.5)
      */
     webservice: WebserviceGeneratedServices;
 }

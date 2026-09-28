@@ -50,7 +50,7 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
             {
                 namespace: "default",
                 source: {
-                    type: "moodle-official",
+                    type: "moodle",
                     version: "4.4",
                 },
                 webservices: ["core_user_*"],
@@ -131,6 +131,8 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
         expect(masterBarrel).toContain("Moodle web services namespace 'default'.");
         expect(masterBarrel).toContain("LegacyGeneratedServices");
         expect(masterBarrel).toContain("DefaultGeneratedServices");
+        expect(masterBarrel).toContain('export type * as legacy from "./legacy/index";');
+        expect(masterBarrel).toContain('export type * as default from "./default/index";');
 
         // Verify index.d.mts exists in master barrel and in sub-barrels
         const masterBarrelMts = path.join(targetSchemasDir, "index.d.mts");

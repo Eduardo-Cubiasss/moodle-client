@@ -51,7 +51,7 @@ describe("ConfigManager - package.json Configuration", () => {
                 {
                     namespace: "default",
                     source: {
-                        type: "moodle-official",
+                        type: "moodle",
                         version: "4.4",
                     },
                     webservices: ["core_course_*", "mod_assign_*"],
@@ -71,20 +71,20 @@ describe("ConfigManager - package.json Configuration", () => {
         expect(configs[0].webservices).toEqual(["core_*"]);
 
         expect(configs[1].namespace).toBe("default");
-        expect(configs[1].source.type).toBe("moodle-official");
+        expect(configs[1].source.type).toBe("moodle");
         expect((configs[1].source as any).version).toBe("4.4");
         expect(configs[1].outDir).toBe("./schemas/v4.4");
         expect(configs[1].webservices).toEqual(["core_course_*", "mod_assign_*"]);
     });
 
-    it("should allow moodle-official source without outDir (optional in remote mode)", async () => {
+    it("should allow moodle source without outDir (optional in remote mode)", async () => {
         const pkgContent = {
             name: "test-app",
             "moodle-client": [
                 {
                     namespace: "default",
                     source: {
-                        type: "moodle-official",
+                        type: "moodle",
                         version: "4.5",
                     },
                     webservices: ["*"],
@@ -126,7 +126,7 @@ describe("ConfigManager - package.json Configuration", () => {
                 {
                     namespace: "default",
                     source: {
-                        type: "moodle-official",
+                        type: "moodle",
                         version: "4.5",
                     },
                     webservices: ["*"],
@@ -134,7 +134,7 @@ describe("ConfigManager - package.json Configuration", () => {
                 {
                     namespace: "default",
                     source: {
-                        type: "moodle-official",
+                        type: "moodle",
                         version: "4.4",
                     },
                     webservices: ["*"],
@@ -158,7 +158,7 @@ describe("ConfigManager - package.json Configuration", () => {
         const configs = await loadPackageConfig(pkgJsonPath);
         expect(configs).toHaveLength(1);
         expect(configs[0].namespace).toBe("webservice");
-        expect(configs[0].source.type).toBe("moodle-official");
+        expect(configs[0].source.type).toBe("moodle");
         expect((configs[0].source as any).version).toBe("4.5");
         expect(configs[0].webservices).toEqual(["*"]);
         expect(configs[0].outDir).toBeUndefined();
@@ -169,7 +169,7 @@ describe("ConfigManager - package.json Configuration", () => {
             {
                 namespace: "webservice",
                 source: {
-                    type: "moodle-official",
+                    type: "moodle",
                     version: "4.5",
                 },
                 webservices: ["*"],

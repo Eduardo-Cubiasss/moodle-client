@@ -117,7 +117,7 @@ Configure one or more schema sources under the `"moodle-client"` array in your `
     {
       "namespace": "default",
       "source": {
-        "type": "moodle-official",
+        "type": "moodle",
         "version": "4.4"
       },
       "webservices": [
@@ -134,10 +134,10 @@ Configure one or more schema sources under the `"moodle-client"` array in your `
 
 - `namespace` (string, required): Unique namespace identifier used on `MoodleClient` (e.g. `moodle.legacy.*`, `moodle.default.*`).
 - `source` (object, required):
-  - Official release: `{ "type": "moodle-official", "version": "4.4" }`
+  - Official release: `{ "type": "moodle", "version": "4.4" }`
   - Local instance: `{ "type": "local", "path": "/path/to/moodle" }`
 - `webservices` (string[], required): Service names or wildcard patterns to include (e.g. `["core_*"]` or `["*"]`).
-- `outDir` (string): Output directory path. Required when `source.type` is `"local"`, optional for `"moodle-official"`. Output files are generated under `[outDir]/{namespace}/`.
+- `outDir` (string): Output directory path. Required when `source.type` is `"local"`, optional for `"moodle"`. Output files are generated under `[outDir]/{namespace}/`.
 
 ### 2. Generate Schemas
 
