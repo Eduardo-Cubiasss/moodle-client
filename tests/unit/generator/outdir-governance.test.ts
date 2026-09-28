@@ -384,7 +384,7 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
             const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
                 {
                     namespace: "webservice",
-                    source: { type: "moodle-official", version: "4.5" },
+                    source: { type: "moodle", version: "4.5" },
                     webservices: ["*"],
                     outDir: undefined,
                 },
@@ -409,7 +409,7 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
             const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
                 {
                     namespace: "webservice",
-                    source: { type: "moodle-official", version: "4.5" },
+                    source: { type: "moodle", version: "4.5" },
                     webservices: ["*"],
                     outDir: undefined,
                 },
@@ -473,7 +473,7 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
                 {
                     namespace: "webservice",
                     source: {
-                        type: "moodle-official",
+                        type: "moodle",
                         version: "4.5",
                     },
                     webservices: ["*"],

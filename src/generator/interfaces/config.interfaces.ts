@@ -4,7 +4,7 @@ export interface MoodleLocalSource {
 }
 
 export interface MoodleOfficialSource {
-    type: "moodle-official";
+    type: "moodle";
     version: string;
 }
 

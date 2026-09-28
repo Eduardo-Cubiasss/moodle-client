@@ -177,7 +177,7 @@ export async function loadPackageConfig(
                 {
                     namespace: "webservice",
                     source: {
-                        type: "moodle-official",
+                        type: "moodle",
                         version: FALLBACK_MOODLE_VERSION,
                     },
                     webservices: ["*"],
@@ -206,7 +206,7 @@ export async function loadPackageConfig(
         const defaultEntry: MoodleSchemaConfigEntry = {
             namespace: "webservice",
             source: {
-                type: "moodle-official",
+                type: "moodle",
                 version: FALLBACK_MOODLE_VERSION,
             },
             webservices: ["*"],
@@ -256,7 +256,7 @@ export async function loadPackageConfig(
                 code: "ERR_CONFIG_MISSING_SOURCE" as any,
                 title: "Missing Configuration Source",
                 details: `Configuration '${namespace}' is missing a valid 'source' property.`,
-                action: "Define 'source' with type 'local' or 'moodle-official'.",
+                action: "Define 'source' with type 'local' or 'moodle'.",
             });
         }
 
@@ -292,7 +292,7 @@ export async function loadPackageConfig(
                 outDir,
                 concurrency: entry.concurrency,
             });
-        } else if (sourceType === "moodle-official") {
+        } else if (sourceType === "moodle") {
             const rawVersion = (entry.source as any).version || FALLBACK_MOODLE_VERSION;
             if (!isMoodleVersionSupported(rawVersion)) {
                 throw new MoodleGeneratorError({
@@ -309,7 +309,7 @@ export async function loadPackageConfig(
             resolvedConfigs.push({
                 namespace,
                 source: {
-                    type: "moodle-official",
+                    type: "moodle",
                     version,
                 },
                 webservices: Array.isArray(entry.webservices) && entry.webservices.length > 0 ? entry.webservices : ["*"],
@@ -320,8 +320,8 @@ export async function loadPackageConfig(
             throw new MoodleGeneratorError({
                 code: "ERR_CONFIG_INVALID_SOURCE_TYPE" as any,
                 title: "Invalid Source Type",
-                details: `Configuration '${namespace}' has unknown source type '${sourceType}'. Must be 'local' or 'moodle-official'.`,
-                action: "Set 'source.type' to 'local' or 'moodle-official'.",
+                details: `Configuration '${namespace}' has unknown source type '${sourceType}'. Must be 'local' or 'moodle'.`,
+                action: "Set 'source.type' to 'local' or 'moodle'.",
             });
         }
     }
