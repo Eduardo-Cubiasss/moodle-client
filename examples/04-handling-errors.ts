@@ -18,33 +18,38 @@ const moodle = new MoodleClient({
     token: process.env.MOODLE_TOKEN!,
 });
 
-try {
-    const { data } = await moodle.call("core_course_get_courses", {
-        options: { ids: [1] },
-    });
+async function main() {
+    try {
+        // Both direct methods and moodle.call() throw the exact same semantic errors
+        const { data } = await moodle.webservice.core_course_get_courses({
+            options: { ids: [1] },
+        });
 
-    // An empty result is not an error: the call succeeded, the site just has
-    // nothing matching. Check for it yourself.
-    if (data.length === 0) console.log("no courses matched");
-    else console.log(data);
-} catch (error) {
-    if (error instanceof InvalidToken) {
-        console.error("the token is wrong or has expired — reissue it");
-    } else if (error instanceof AccessException) {
-        console.error(
-            "the token is valid, but its user lacks the capability, or the",
-            "function is not on the external service the token belongs to",
-        );
-    } else if (error instanceof InvalidParameter) {
-        console.error("Moodle rejected the parameters:", error.debugInfo);
-    } else if (error instanceof URLError) {
-        console.error("never reached the web service: wrong URL, site down, or a proxy");
-    } else if (error instanceof MoodleException) {
-        // The only one carrying the site's own status rather than a status
-        // describing the kind of failure.
-        console.error(`Moodle failed with ${error.status}: ${error.message}`);
-        console.error("debug:", error.debugInfo ?? "(debugging is off on this site)");
-    } else {
-        throw error;
+        // An empty result is not an error: the call succeeded, the site just has
+        // nothing matching. Check for it yourself.
+        if (data.length === 0) console.log("no courses matched");
+        else console.log(data);
+    } catch (error) {
+        if (error instanceof InvalidToken) {
+            console.error("the token is wrong or has expired — reissue it");
+        } else if (error instanceof AccessException) {
+            console.error(
+                "the token is valid, but its user lacks the capability, or the",
+                "function is not on the external service the token belongs to",
+            );
+        } else if (error instanceof InvalidParameter) {
+            console.error("Moodle rejected the parameters:", error.debugInfo);
+        } else if (error instanceof URLError) {
+            console.error("never reached the web service: wrong URL, site down, or a proxy");
+        } else if (error instanceof MoodleException) {
+            // The only one carrying the site's own status rather than a status
+            // describing the kind of failure.
+            console.error(`Moodle failed with ${error.status}: ${error.message}`);
+            console.error("debug:", error.debugInfo ?? "(debugging is off on this site)");
+        } else {
+            throw error;
+        }
     }
 }
+
+main().catch(console.error);

@@ -4,10 +4,10 @@ Runnable scripts, in the order they are worth reading.
 
 | | |
 | --- | --- |
-| [01-site-info.ts](01-site-info.ts) | the smallest call there is — run this first to prove your setup |
-| [02-reusing-a-client.ts](02-reusing-a-client.ts) | one client, several functions |
-| [03-typed-responses.ts](03-typed-responses.ts) | typing the body instead of living with `any` |
-| [04-handling-errors.ts](04-handling-errors.ts) | telling the failure cases apart |
+| [01-site-info.ts](01-site-info.ts) | direct typed call to `core_webservice_get_site_info` — run this first to prove your setup |
+| [02-reusing-a-client.ts](02-reusing-a-client.ts) | one client, multiple functions using direct methods and `.call()` |
+| [03-typed-responses.ts](03-typed-responses.ts) | strongly-typed responses: bundled types out of the box vs dynamic `call<T>()` |
+| [04-handling-errors.ts](04-handling-errors.ts) | telling the failure cases apart with semantic error classes |
 | [05-one-shot-call.ts](05-one-shot-call.ts) | `moodleClient()`, without keeping a client around |
 
 They import `@didactika/moodle-client` by name, exactly as your own code
