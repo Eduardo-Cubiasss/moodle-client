@@ -7,34 +7,48 @@
  */
 import { MoodleClient } from "@didactika/moodle-client";
 
-const moodle = new MoodleClient({
-    rootURL: process.env.MOODLE_URL!,
-    token: process.env.MOODLE_TOKEN!,
-});
+async function main() {
+    const moodle = new MoodleClient({
+        rootURL: process.env.MOODLE_URL!,
+        token: process.env.MOODLE_TOKEN!,
+    });
 
-// No parameters at all.
-const courses = await moodle.call("core_course_get_courses");
-console.log(`${courses.data.length} courses on the site`);
+    // --- Approach 1: Direct typed methods (Recommended) ---
+    // Strongly typed parameters and return values out of the box
 
-// Nested parameters: this goes out as options[ids][0]=2&options[ids][1]=3
-const some = await moodle.call("core_course_get_courses", {
-    options: { ids: [2, 3] },
-});
-console.log(some.data.map((course: { fullname: string }) => course.fullname));
+    // 1. No parameters required:
+    const courses = await moodle.webservice.core_course_get_courses();
+    console.log(`${courses.data.length} courses on the site`);
 
-// A list of objects flattens the same way:
-// criteria[0][key]=email&criteria[0][value]=...
-const users = await moodle.call("core_user_get_users", {
-    criteria: [{ key: "email", value: "%@example.org" }],
-});
-console.log(`${users.data.users.length} users matched`);
+    // 2. Nested parameters: automatically serialized to options[ids][0]=2&options[ids][1]=3
+    const some = await moodle.webservice.core_course_get_courses({
+        options: { ids: [2, 3] },
+    });
+    // some.data is automatically typed as CoreCourseGetCoursesReturns
+    console.log(some.data.map((course) => course.fullname));
 
-// A client can carry a different default method, and any single call can
-// still override it.
-const reader = new MoodleClient({
-    rootURL: process.env.MOODLE_URL!,
-    token: process.env.MOODLE_TOKEN!,
-    method: "GET",
-});
+    // 3. Array of objects: serialized to criteria[0][key]=email&criteria[0][value]=...
+    const users = await moodle.webservice.core_user_get_users({
+        criteria: [{ key: "email", value: "%@example.org" }],
+    });
+    console.log(`${users.data.users.length} users matched`);
 
-await reader.call("core_course_get_courses");
+    // --- Approach 2: Dynamic call() method ---
+    // Ideal when the function name is dynamic or calling plugins without pre-generated types
+    const dynamicCourses = await moodle.call("core_course_get_courses", {
+        options: { ids: [2, 3] },
+    });
+    console.log(`${dynamicCourses.data.length} courses via .call()`);
+
+    // A client can carry a different default method, and any single call can
+    // still override it.
+    const reader = new MoodleClient({
+        rootURL: process.env.MOODLE_URL!,
+        token: process.env.MOODLE_TOKEN!,
+        method: "GET",
+    });
+
+    await reader.webservice.core_course_get_courses();
+}
+
+main().catch(console.error);

@@ -21,7 +21,37 @@ A client for one Moodle site. Build it once and reuse it.
 Nothing is validated at construction and nothing reaches the network: an
 unusable `rootURL` surfaces as a [`URLError`](errors.md) on the first call.
 
+### Direct Typed Methods: `client.<namespace>.<webServiceFunction>(content?, method?)`
+
+`MoodleClient` dynamically routes property accesses through proxy namespaces, mapping directly to Moodle web service functions with full TypeScript autocomplete, JSDocs, parameter shapes, and return types.
+
+The default bundled namespace is `webservice`, covering all standard Moodle 4.5 web service functions:
+
+```ts
+// Autocomplete on parameters and return types:
+const { data: courses } = await moodle.webservice.core_course_get_courses({
+  options: { ids: [1, 2, 3] },
+});
+
+// Method override per call:
+const { data: site } = await moodle.webservice.core_webservice_get_site_info(
+  undefined,
+  "GET"
+);
+```
+
+| Parameter | Type | Default | |
+| --- | --- | --- | --- |
+| `content` | `object` | `{}` | typed function parameters (generated from Moodle schema) |
+| `method` | `HttpMethod` | the client's default | overrides HTTP method for this call only |
+
+Returns `Promise<MoodleResponse<TReturns>>`, where `TReturns` is the strongly-typed return interface generated for that specific function. Throws on failure (see [Errors](errors.md)).
+
+Additional namespaces (such as `client.legacy.*`, `client.v44.*`) can be configured in `package.json` and generated via `npx moodle-generate-schemas`.
+
 ### `client.call<T>(webServiceFunction, content?, method?)`
+
+The dynamic calling method. Call any function by string name, with an optional generic type argument for the response body.
 
 | Parameter | Type | Default | |
 | --- | --- | --- | --- |
@@ -153,3 +183,27 @@ type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTION
 
 Moodle's REST server only really honours `GET` and `POST`. The rest are
 accepted because the signature has always allowed them.
+
+### `MoodleSchemaConfigEntry`
+
+Structure of each entry in the `"moodle-client"` configuration array in `package.json`:
+
+```ts
+interface MoodleSchemaConfigEntry {
+  namespace: string;
+  source: MoodleSourceConfig;
+  webservices: string[];
+  outDir?: string;
+  concurrency?: number;
+}
+```
+
+### `MoodleSourceConfig`
+
+Source of the Moodle codebase for schema generation:
+
+```ts
+type MoodleSourceConfig =
+  | { type: "moodle"; version: string }
+  | { type: "local"; path: string };
+```

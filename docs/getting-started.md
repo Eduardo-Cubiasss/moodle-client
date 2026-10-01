@@ -44,7 +44,12 @@ const moodle = new MoodleClient({
   token: process.env.MOODLE_TOKEN!,
 });
 
-const { data } = await moodle.call("core_webservice_get_site_info");
+// 1. Direct typed method (Recommended):
+// Gives you full IDE autocomplete and typed responses out of the box
+const { data } = await moodle.webservice.core_webservice_get_site_info();
+
+// 2. Or dynamic call by name:
+// const { data } = await moodle.call("core_webservice_get_site_info");
 
 console.log(data.sitename, data.username);
 ```
@@ -60,14 +65,20 @@ path to `server.php`. Trailing slashes are fine either way.
 
 Moodle's REST endpoint has no notion of nested JSON: everything arrives as
 flat `parent[child][index]` keys. Write the object the natural way and let
-the client flatten it.
+the client flatten it automatically.
 
 ```ts
-await moodle.call("core_course_get_courses", {
+// Direct method with full parameter autocompletion:
+const { data } = await moodle.webservice.core_course_get_courses({
   options: {
     ids: [1, 2, 3],
   },
 });
+
+// Or using .call():
+// const { data } = await moodle.call("core_course_get_courses", {
+//   options: { ids: [1, 2, 3] },
+// });
 ```
 
 goes out as:
@@ -79,21 +90,50 @@ options[ids][0]=1&options[ids][1]=2&options[ids][2]=3
 `null` and `undefined` are dropped, since Moodle has no representation for
 either. Everything else is stringified.
 
-## Two ways to call
+## Three ways to call
 
-`MoodleClient` settles the site, the token and the default method once, and
-each call only names the function it wants. Prefer it whenever more than one
-call goes to the same site.
+### 1. Direct typed methods (Recommended)
+
+`MoodleClient` provides direct methods through namespaces. Out of the box, the
+bundled `webservice` namespace contains 700+ typed Moodle 4.5 web service functions:
 
 ```ts
 const moodle = new MoodleClient({ rootURL, token });
 
-await moodle.call("core_course_get_courses");
-await moodle.call("core_user_get_users", { criteria: [{ key: "email", value: "a@b.c" }] });
+// Autocomplete on function names, parameters and response types:
+const courses = await moodle.webservice.core_course_get_courses({
+  options: { ids: [1, 2] },
+});
+
+const users = await moodle.webservice.core_user_get_users({
+  criteria: [{ key: "email", value: "a@b.c" }],
+});
 ```
 
-`moodleClient()` is the one-shot form the package shipped with. It is not
-going away, and it goes through exactly the same path.
+You can also generate custom namespaces for other Moodle versions (e.g. 4.4)
+or local plugin directories via `npx moodle-generate-schemas`.
+
+### 2. Dynamic `.call()` method
+
+`MoodleClient` also settles the site, token, and default HTTP method once while
+allowing you to call any function dynamically by string name. Use this for
+dynamic function calls or third-party plugins where pre-generated schemas
+are not available:
+
+```ts
+const moodle = new MoodleClient({ rootURL, token });
+
+// Dynamic call with untyped response (any) or generic type argument:
+const courses = await moodle.call("core_course_get_courses");
+const users = await moodle.call("core_user_get_users", {
+  criteria: [{ key: "email", value: "a@b.c" }],
+});
+```
+
+### 3. One-shot `moodleClient()` helper
+
+`moodleClient()` is the one-shot form the package originally shipped with. It is
+not going away, and it goes through exactly the same network and error-handling path:
 
 ```ts
 import { moodleClient } from "@didactika/moodle-client";

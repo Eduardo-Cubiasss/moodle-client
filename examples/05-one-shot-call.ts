@@ -8,25 +8,29 @@
  */
 import { moodleClient } from "@didactika/moodle-client";
 
-const urlRequest = {
-    rootURL: process.env.MOODLE_URL!,
-    token: process.env.MOODLE_TOKEN!,
-    webServiceFunction: "core_course_get_courses",
-};
+async function main() {
+    const urlRequest = {
+        rootURL: process.env.MOODLE_URL!,
+        token: process.env.MOODLE_TOKEN!,
+        webServiceFunction: "core_course_get_courses",
+    };
 
-const response = await moodleClient({
-    urlRequest,
-    content: { options: { ids: [1, 2, 3] } },
-});
+    const response = await moodleClient({
+        urlRequest,
+        content: { options: { ids: [1, 2, 3] } },
+    });
 
-console.log(response.status, response.data);
+    console.log(response.status, response.data);
 
-// GET puts the parameters in the query string, which is where PHP reads them
-// from. Anything other than GET and HEAD sends a urlencoded body.
-const viaGet = await moodleClient({
-    urlRequest,
-    content: { options: { ids: [1] } },
-    method: "GET",
-});
+    // GET puts the parameters in the query string, which is where PHP reads them
+    // from. Anything other than GET and HEAD sends a urlencoded body.
+    const viaGet = await moodleClient({
+        urlRequest,
+        content: { options: { ids: [1] } },
+        method: "GET",
+    });
 
-console.log(viaGet.data);
+    console.log(viaGet.data);
+}
+
+main().catch(console.error);

@@ -29,21 +29,32 @@ Every error extends `Error` and carries:
 
 ```ts
 import {
-  moodleClient,
+  MoodleClient,
   AccessException,
+  InvalidParameter,
+  InvalidRecord,
   InvalidToken,
   MoodleException,
   URLError,
 } from "@didactika/moodle-client";
 
+const moodle = new MoodleClient({ rootURL, token });
+
 try {
-  await moodle.call("core_course_get_courses");
+  // Works identically with direct methods or dynamic call():
+  await moodle.webservice.core_course_get_courses({ options: { ids: [1] } });
+  // or: await moodle.call("core_course_get_courses", { options: { ids: [1] } });
 } catch (error) {
   if (error instanceof InvalidToken) {
     // wrong token, or it expired: reissue it
   } else if (error instanceof AccessException) {
     // the token is valid, but its user lacks the capability, or the
     // function is not on the external service this token belongs to
+  } else if (error instanceof InvalidParameter) {
+    // parameters were invalid, missing or unexpected
+    console.error("Invalid parameter:", error.debugInfo);
+  } else if (error instanceof InvalidRecord) {
+    // requested record (e.g. course or user ID) was not found
   } else if (error instanceof URLError) {
     // never reached the web service: wrong site URL, site down, proxy
   } else if (error instanceof MoodleException) {

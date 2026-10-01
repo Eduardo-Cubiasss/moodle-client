@@ -20,6 +20,12 @@ const BODYLESS_METHODS = new Set(["GET", "HEAD"]);
  *   token: "aeb315e6dd3affc18352fe46124cdd48",
  * });
  *
+ * // Direct typed method (bundled Moodle 4.5 webservice namespace):
+ * const { data: courses } = await moodle.webservice.core_course_get_courses({
+ *   options: { ids: [1, 2, 3] },
+ * });
+ *
+ * // Or dynamic call by function name:
  * const { data } = await moodle.call("core_course_get_courses", {
  *   options: { ids: [1, 2, 3] },
  * });
