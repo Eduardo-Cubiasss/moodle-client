@@ -192,7 +192,7 @@ export function findMoodleClientPackageDir(): string {
 /**
  * Ensures declaration files in the package re-export from ./schemas/index.
  */
-async function ensurePackageDeclarationExports(pkgDir: string): Promise<void> {
+export async function ensurePackageDeclarationExports(pkgDir: string): Promise<void> {
     const dtsFiles = [
         path.join(pkgDir, "dist/index.d.ts"),
         path.join(pkgDir, "dist/index.d.mts"),
@@ -254,7 +254,7 @@ async function ensureDtsMtsSync(dir: string): Promise<void> {
 /**
  * Generates the master barrel dist/schemas/index.d.ts that aggregates all schema namespaces.
  */
-async function generateMasterBarrel(
+export async function generateMasterBarrel(
     targetSchemasDir: string,
     configs: MoodleSchemaConfigEntry[],
     pkgDir: string,
@@ -282,10 +282,12 @@ async function generateMasterBarrel(
     masterDts += `\nexport interface GeneratedMoodleServices {\n`;
     for (const entry of configs) {
         const typeName = `${toPascalCase(entry.namespace)}GeneratedServices`;
-        const sourceDesc =
-            entry.source.type === "local"
-                ? `local (${entry.source.path})`
-                : `moodle (v${entry.source.version})`;
+        const isLocal =
+            entry.source.type === "local" ||
+            (entry.source as any).type === "moodle-local";
+        const sourceDesc = isLocal
+            ? `local (${(entry.source as any).path})`
+            : `moodle (v${(entry.source as any).version})`;
         masterDts += `    /**\n     * Moodle web services namespace '${entry.namespace}'.\n     * Source: ${sourceDesc}\n     */\n`;
         masterDts += `    ${entry.namespace}: ${typeName};\n`;
     }
@@ -443,17 +445,18 @@ export async function runGenerator(
         let targetMoodlePath: string | undefined;
         let shouldCleanup = false;
 
-        if (entry.source.type === "local") {
-            const rawPath = entry.source.path;
+        if (entry.source.type === "local" || (entry.source as any).type === "moodle-local") {
+            const rawPath = (entry.source as any).path;
             targetMoodlePath = rawPath.startsWith("~/")
                 ? path.join(os.homedir(), rawPath.slice(2))
                 : path.resolve(configDir, rawPath);
         } else {
+            const version = (entry.source as any).version;
             const tempCloneDir = path.join(
                 os.tmpdir(),
-                `moodle-v${entry.source.version}-${entry.namespace}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+                `moodle-v${version}-${entry.namespace}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
             );
-            targetMoodlePath = await cloneMoodleVersion(entry.source.version, tempCloneDir);
+            targetMoodlePath = await cloneMoodleVersion(version, tempCloneDir);
             shouldCleanup = true;
         }
 
