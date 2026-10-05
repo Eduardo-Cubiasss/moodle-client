@@ -1,14 +1,23 @@
 export interface MoodleLocalSource {
-    type: "local";
+    type: "local" | "moodle-local";
     path: string;
 }
 
 export interface MoodleOfficialSource {
-    type: "moodle";
+    type: "moodle" | "moodle-official" | "official";
     version: string;
 }
 
-export type MoodleSourceConfig = MoodleLocalSource | MoodleOfficialSource;
+export interface MoodleRepositorySource {
+    type: "moodle-repository" | "repository" | "remote" | "git";
+    url?: string;
+    branch?: string;
+}
+
+export type MoodleSourceConfig =
+    | MoodleLocalSource
+    | MoodleOfficialSource
+    | MoodleRepositorySource;
 
 /**
  * Configuration entry for a single Moodle schema namespace.

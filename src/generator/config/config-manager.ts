@@ -261,7 +261,7 @@ export async function loadPackageConfig(
         }
 
         const sourceType = entry.source.type;
-        if (sourceType === "local") {
+        if (sourceType === "local" || sourceType === "moodle-local") {
             const localPath = (entry.source as any).path;
             if (!localPath || typeof localPath !== "string") {
                 throw new MoodleGeneratorError({
@@ -285,14 +285,14 @@ export async function loadPackageConfig(
             resolvedConfigs.push({
                 namespace,
                 source: {
-                    type: "local",
+                    type: sourceType,
                     path: localPath,
                 },
                 webservices: Array.isArray(entry.webservices) && entry.webservices.length > 0 ? entry.webservices : ["*"],
                 outDir,
                 concurrency: entry.concurrency,
             });
-        } else if (sourceType === "moodle") {
+        } else if (sourceType === "moodle" || sourceType === "moodle-official" || sourceType === "official") {
             const rawVersion = (entry.source as any).version || FALLBACK_MOODLE_VERSION;
             if (!isMoodleVersionSupported(rawVersion)) {
                 throw new MoodleGeneratorError({
@@ -309,7 +309,7 @@ export async function loadPackageConfig(
             resolvedConfigs.push({
                 namespace,
                 source: {
-                    type: "moodle",
+                    type: sourceType,
                     version,
                 },
                 webservices: Array.isArray(entry.webservices) && entry.webservices.length > 0 ? entry.webservices : ["*"],
@@ -320,8 +320,8 @@ export async function loadPackageConfig(
             throw new MoodleGeneratorError({
                 code: "ERR_CONFIG_INVALID_SOURCE_TYPE" as any,
                 title: "Invalid Source Type",
-                details: `Configuration '${namespace}' has unknown source type '${sourceType}'. Must be 'local' or 'moodle'.`,
-                action: "Set 'source.type' to 'local' or 'moodle'.",
+                details: `Configuration '${namespace}' has unknown source type '${sourceType}'. Must be 'moodle-official' (or 'moodle') or 'local'.`,
+                action: "Set 'source.type' to 'moodle-official' or 'local'.",
             });
         }
     }

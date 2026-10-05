@@ -25,7 +25,9 @@
     "node": ">=20"
   },
   "bin": {
-    "moodle-generate-schemas": "dist/generator/cli.js"
+    "moodle-generate-schemas": "dist/generator/cli.js",
+    "moodle-create-schemas": "dist/generator/create-cli.js",
+    "moodle-delete-schemas": "dist/generator/delete-cli.js"
   },
   "scripts": {
     "clean": "rimraf dist",
@@ -36,7 +38,9 @@
     "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "moodle:generate-webservices": "tsx src/generator/cli.ts"
+    "moodle:generate-webservices": "tsx src/generator/cli.ts",
+    "moodle-create-schemas": "tsx src/generator/create-cli.ts",
+    "moodle-delete-schemas": "tsx src/generator/delete-cli.ts"
   },
   "repository": {
     "type": "git",
