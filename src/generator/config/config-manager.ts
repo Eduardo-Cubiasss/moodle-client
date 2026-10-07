@@ -261,68 +261,124 @@ export async function loadPackageConfig(
         }
 
         const sourceType = entry.source.type;
-        if (sourceType === "local" || sourceType === "moodle-local") {
-            const localPath = (entry.source as any).path;
-            if (!localPath || typeof localPath !== "string") {
-                throw new MoodleGeneratorError({
-                    code: "ERR_CONFIG_MISSING_LOCAL_PATH" as any,
-                    title: "Missing Local Path",
-                    details: `Configuration '${namespace}' specifies source 'local' but is missing 'path'.`,
-                    action: "Specify the filesystem path to the Moodle codebase in 'source.path'.",
+        switch (sourceType) {
+            case "local":
+            case "moodle-local": {
+                const localPath = (entry.source as any).path;
+                if (!localPath || typeof localPath !== "string") {
+                    throw new MoodleGeneratorError({
+                        code: "ERR_CONFIG_MISSING_LOCAL_PATH" as any,
+                        title: "Missing Local Path",
+                        details: `Configuration '${namespace}' specifies source 'local' but is missing 'path'.`,
+                        action: "Specify the filesystem path to the Moodle codebase in 'source.path'.",
+                    });
+                }
+
+                const outDir = entry.outDir && entry.outDir.trim().length > 0 ? entry.outDir.trim() : undefined;
+                if (!outDir) {
+                    throw new MoodleGeneratorError({
+                        code: "ERR_CONFIG_MISSING_OUTDIR_LOCAL",
+                        title: "Missing outDir in Local Mode",
+                        details: `Missing outDir in Local Mode for configuration '${namespace}'. 'outDir' is required when source type is 'local'.`,
+                        action: `Add "outDir": "./schemas/local" (or your preferred output directory) to configuration '${namespace}'.`,
+                    });
+                }
+
+                resolvedConfigs.push({
+                    namespace,
+                    source: {
+                        type: sourceType,
+                        path: localPath,
+                    },
+                    webservices: Array.isArray(entry.webservices) && entry.webservices.length > 0 ? entry.webservices : ["*"],
+                    outDir,
+                    concurrency: entry.concurrency,
                 });
+                break;
             }
 
-            const outDir = entry.outDir && entry.outDir.trim().length > 0 ? entry.outDir.trim() : undefined;
-            if (!outDir) {
-                throw new MoodleGeneratorError({
-                    code: "ERR_CONFIG_MISSING_OUTDIR_LOCAL",
-                    title: "Missing outDir in Local Mode",
-                    details: `Missing outDir in Local Mode for configuration '${namespace}'. 'outDir' is required when source type is 'local'.`,
-                    action: `Add "outDir": "./schemas/local" (or your preferred output directory) to configuration '${namespace}'.`,
+            case "moodle":
+            case "moodle-official":
+            case "official": {
+                const rawVersion = (entry.source as any).version || FALLBACK_MOODLE_VERSION;
+                if (!isMoodleVersionSupported(rawVersion)) {
+                    throw new MoodleGeneratorError({
+                        code: "ERR_MOODLE_VERSION_UNSUPPORTED",
+                        title: "Unsupported Moodle Version",
+                        details: `Moodle version '${rawVersion}' is not supported in configuration '${namespace}'. Web services schema generation requires Moodle 2.0 or higher.`,
+                        action: `Set "version" to a supported Moodle version (>= 2.0, e.g. "4.4") in configuration '${namespace}'.`,
+                    });
+                }
+
+                const version = normalizeMoodleVersion(rawVersion);
+                const outDir = entry.outDir && entry.outDir.trim().length > 0 ? entry.outDir.trim() : undefined;
+
+                resolvedConfigs.push({
+                    namespace,
+                    source: {
+                        type: sourceType,
+                        version,
+                    },
+                    webservices: Array.isArray(entry.webservices) && entry.webservices.length > 0 ? entry.webservices : ["*"],
+                    outDir,
+                    concurrency: entry.concurrency,
                 });
+                break;
             }
 
-            resolvedConfigs.push({
-                namespace,
-                source: {
-                    type: sourceType,
-                    path: localPath,
-                },
-                webservices: Array.isArray(entry.webservices) && entry.webservices.length > 0 ? entry.webservices : ["*"],
-                outDir,
-                concurrency: entry.concurrency,
-            });
-        } else if (sourceType === "moodle" || sourceType === "moodle-official" || sourceType === "official") {
-            const rawVersion = (entry.source as any).version || FALLBACK_MOODLE_VERSION;
-            if (!isMoodleVersionSupported(rawVersion)) {
-                throw new MoodleGeneratorError({
-                    code: "ERR_MOODLE_VERSION_UNSUPPORTED",
-                    title: "Unsupported Moodle Version",
-                    details: `Moodle version '${rawVersion}' is not supported in configuration '${namespace}'. Web services schema generation requires Moodle 2.0 or higher.`,
-                    action: `Set "version" to a supported Moodle version (>= 2.0, e.g. "4.4") in configuration '${namespace}'.`,
+            case "repository":
+            case "moodle-repository":
+            case "remote":
+            case "git": {
+                const repoUrl = (entry.source as any).url;
+                if (!repoUrl || typeof repoUrl !== "string" || !repoUrl.trim()) {
+                    throw new MoodleGeneratorError({
+                        code: "ERR_CONFIG_MISSING_REPOSITORY_URL" as any,
+                        title: "Missing Repository URL",
+                        details: `Configuration '${namespace}' specifies source 'repository' but is missing 'url'.`,
+                        action: "Specify the repository clone URL in 'source.url' (e.g., 'https://github.com/my-org/moodle.git').",
+                    });
+                }
+
+                const outDir = entry.outDir && entry.outDir.trim().length > 0 ? entry.outDir.trim() : undefined;
+                if (!outDir) {
+                    throw new MoodleGeneratorError({
+                        code: "ERR_CONFIG_MISSING_OUTDIR_REPOSITORY" as any,
+                        title: "Missing outDir in Repository Mode",
+                        details: `Missing outDir in Repository Mode for configuration '${namespace}'. 'outDir' is required when source type is 'repository'.`,
+                        action: `Add "outDir": "src/schemas" (or your preferred output directory) to configuration '${namespace}'.`,
+                    });
+                }
+
+                const branch =
+                    (entry.source as any).branch &&
+                    typeof (entry.source as any).branch === "string" &&
+                    (entry.source as any).branch.trim()
+                        ? (entry.source as any).branch.trim()
+                        : "main";
+
+                resolvedConfigs.push({
+                    namespace,
+                    source: {
+                        type: sourceType,
+                        url: repoUrl.trim(),
+                        branch,
+                    },
+                    webservices: Array.isArray(entry.webservices) && entry.webservices.length > 0 ? entry.webservices : ["*"],
+                    outDir,
+                    concurrency: entry.concurrency,
                 });
+                break;
             }
 
-            const version = normalizeMoodleVersion(rawVersion);
-            const outDir = entry.outDir && entry.outDir.trim().length > 0 ? entry.outDir.trim() : undefined;
-
-            resolvedConfigs.push({
-                namespace,
-                source: {
-                    type: sourceType,
-                    version,
-                },
-                webservices: Array.isArray(entry.webservices) && entry.webservices.length > 0 ? entry.webservices : ["*"],
-                outDir,
-                concurrency: entry.concurrency,
-            });
-        } else {
-            throw new MoodleGeneratorError({
-                code: "ERR_CONFIG_INVALID_SOURCE_TYPE" as any,
-                title: "Invalid Source Type",
-                details: `Configuration '${namespace}' has unknown source type '${sourceType}'. Must be 'moodle-official' (or 'moodle') or 'local'.`,
-                action: "Set 'source.type' to 'moodle-official' or 'local'.",
-            });
+            default: {
+                throw new MoodleGeneratorError({
+                    code: "ERR_CONFIG_INVALID_SOURCE_TYPE" as any,
+                    title: "Invalid Source Type",
+                    details: `Configuration '${namespace}' has unknown source type '${sourceType}'. Must be 'moodle-official' (or 'moodle'), 'local', or 'repository'.`,
+                    action: "Set 'source.type' to 'moodle-official', 'local', or 'repository'.",
+                });
+            }
         }
     }
 
