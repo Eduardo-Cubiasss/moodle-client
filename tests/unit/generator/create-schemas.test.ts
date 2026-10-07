@@ -90,8 +90,7 @@ describe("moodle-create-schemas unit tests", () => {
             expect(validateSourceOption("1")).toBe("remote");
             expect(validateSourceOption("2")).toBe("local");
 
-            // Repository option is shown but not implemented yet as per instructions
-            expect(() => validateSourceOption("3")).toThrow(/repository.*not.*supported/i);
+            expect(validateSourceOption("3")).toBe("repository");
 
             // Invalid options
             expect(() => validateSourceOption("4")).toThrow(/invalid/i);

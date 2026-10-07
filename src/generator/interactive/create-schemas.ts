@@ -82,7 +82,7 @@ export function validateNamespace(
     return true;
 }
 
-export function validateSourceOption(option: string): "remote" | "local" {
+export function validateSourceOption(option: string): "remote" | "local" | "repository" {
     const trimmed = option.trim();
     if (trimmed === "1") {
         return "remote";
@@ -91,11 +91,28 @@ export function validateSourceOption(option: string): "remote" | "local" {
         return "local";
     }
     if (trimmed === "3") {
-        throw new Error(
-            "Repository source is not supported yet. Please select option 1 or 2."
-        );
+        return "repository";
     }
     throw new Error("Invalid option. Please enter 1, 2, or 3.");
+}
+
+export function validateRepositoryUrlInput(url: string): string {
+    const trimmed = url.trim();
+    if (!trimmed) {
+        throw new Error("Repository URL cannot be empty.");
+    }
+    if (!/^(https?:\/\/|git@|ssh:\/\/).+/i.test(trimmed)) {
+        throw new Error("Invalid repository URL. Must start with http://, https://, git@, or ssh://");
+    }
+    return trimmed;
+}
+
+export function validateBranchInput(branch: string): string {
+    const trimmed = branch.trim();
+    if (!trimmed) {
+        return "main";
+    }
+    return trimmed;
 }
 
 export function validateMoodleVersionInput(version: string): string {
@@ -123,6 +140,229 @@ export function validateLocalPathInput(rawPath: string): string {
         throw new Error(`Directory '${resolved}' does not exist.`);
     }
     return trimmed;
+}
+
+async function promptOfficialSource(
+    ctx: PromptContext,
+    namespace: string
+): Promise<MoodleSchemaConfigEntry> {
+    console.log(SEPARATOR);
+    let normalizedVersion = "5.0";
+    await askQuestion(
+        ctx,
+        "Please enter the Moodle version",
+        "5.0",
+        "Version: ",
+        (val) => {
+            try {
+                normalizedVersion = validateMoodleVersionInput(val);
+                return undefined;
+            } catch (err: any) {
+                return err.message;
+            }
+        }
+    );
+
+    console.log(SEPARATOR);
+    let webservices: string[] = ["*"];
+    await askQuestion(
+        ctx,
+        "Please enter the webservices pattern",
+        "core_user_*, local_plugin_example",
+        "Webservices: ",
+        (val) => {
+            try {
+                webservices = parseWebservicesInput(val);
+                return undefined;
+            } catch (err: any) {
+                return err.message;
+            }
+        }
+    );
+
+    console.log(SEPARATOR);
+    let saveInProject = false;
+    await askQuestion(
+        ctx,
+        "Would you like to save the schemas in a project directory? (y/n)",
+        "y, yes, n, no",
+        "Response: ",
+        (val) => {
+            try {
+                saveInProject = parseYesNoInput(val);
+                return undefined;
+            } catch (err: any) {
+                return err.message;
+            }
+        }
+    );
+
+    let outDir: string | undefined;
+    if (saveInProject) {
+        console.log(SEPARATOR);
+        outDir = await askQuestion(
+            ctx,
+            "Please enter the path to the schemas directory",
+            "src/moodleSchemas",
+            "Path: ",
+            (val) => {
+                if (!val.trim()) {
+                    return "Path cannot be empty.";
+                }
+                return undefined;
+            }
+        );
+    }
+
+    return {
+        namespace,
+        source: {
+            type: "moodle-official",
+            version: normalizedVersion,
+        },
+        webservices,
+        ...(outDir ? { outDir } : {}),
+    };
+}
+
+async function promptLocalSource(
+    ctx: PromptContext,
+    namespace: string
+): Promise<MoodleSchemaConfigEntry> {
+    console.log(SEPARATOR);
+    let localPath = "";
+    await askQuestion(
+        ctx,
+        "Please enter the path to your Moodle directory",
+        "~/projects/moodle",
+        "Path: ",
+        (val) => {
+            try {
+                localPath = validateLocalPathInput(val);
+                return undefined;
+            } catch (err: any) {
+                return err.message;
+            }
+        }
+    );
+
+    console.log(SEPARATOR);
+    let webservices: string[] = ["*"];
+    await askQuestion(
+        ctx,
+        "Please enter the webservices pattern",
+        "core_user_*, local_plugin_example",
+        "Webservices: ",
+        (val) => {
+            try {
+                webservices = parseWebservicesInput(val);
+                return undefined;
+            } catch (err: any) {
+                return err.message;
+            }
+        }
+    );
+
+    console.log(SEPARATOR);
+    const outDir = await askQuestion(
+        ctx,
+        "Please enter the directory to save the schemas",
+        "src/moodleLegacySchemas",
+        "Path: ",
+        (val) => {
+            if (!val.trim()) {
+                return "Path cannot be empty.";
+            }
+            return undefined;
+        }
+    );
+
+    return {
+        namespace,
+        source: {
+            type: "moodle-local",
+            path: localPath,
+        },
+        webservices,
+        outDir,
+    };
+}
+
+async function promptRepositorySource(
+    ctx: PromptContext,
+    namespace: string
+): Promise<MoodleSchemaConfigEntry> {
+    console.log(SEPARATOR);
+    let repoUrl = "";
+    await askQuestion(
+        ctx,
+        "Please enter the repository URL",
+        "https://github.com/my-org/moodle.git",
+        "URL: ",
+        (val) => {
+            try {
+                repoUrl = validateRepositoryUrlInput(val);
+                return undefined;
+            } catch (err: any) {
+                return err.message;
+            }
+        }
+    );
+
+    console.log(SEPARATOR);
+    let branch = "main";
+    await askQuestion(
+        ctx,
+        "Please enter the branch or tag",
+        "main",
+        "Branch: ",
+        (val) => {
+            branch = validateBranchInput(val);
+            return undefined;
+        }
+    );
+
+    console.log(SEPARATOR);
+    let webservices: string[] = ["*"];
+    await askQuestion(
+        ctx,
+        "Please enter the webservices pattern",
+        "core_user_*, local_plugin_example",
+        "Webservices: ",
+        (val) => {
+            try {
+                webservices = parseWebservicesInput(val);
+                return undefined;
+            } catch (err: any) {
+                return err.message;
+            }
+        }
+    );
+
+    console.log(SEPARATOR);
+    const outDir = await askQuestion(
+        ctx,
+        "Please enter the directory to save the schemas",
+        "src/moodleSchemas",
+        "Path: ",
+        (val) => {
+            if (!val.trim()) {
+                return "Path cannot be empty.";
+            }
+            return undefined;
+        }
+    );
+
+    return {
+        namespace,
+        source: {
+            type: "repository",
+            url: repoUrl,
+            branch,
+        },
+        webservices,
+        outDir,
+    };
 }
 
 export interface PromptCreateSchemasOptions {
@@ -200,7 +440,7 @@ export async function promptCreateSchemas(
             console.log(SEPARATOR);
             const sourceTitle =
                 "Please select the source for webservice schemas\n[1] Moodle Official (GitHub)\n[2] Moodle Local (Directory)\n[3] Remote Repository (Configurable)\n";
-            let sourceType: "remote" | "local" = "remote";
+            let sourceType = "remote" as "remote" | "local" | "repository";
             await askQuestion(
                 ctx,
                 sourceTitle,
@@ -218,148 +458,20 @@ export async function promptCreateSchemas(
 
             let newEntry: MoodleSchemaConfigEntry;
 
-            if (sourceType === "remote") {
-                // 3a. Moodle version
-                console.log(SEPARATOR);
-                let normalizedVersion = "5.0";
-                await askQuestion(
-                    ctx,
-                    "Please enter the Moodle version",
-                    "5.0",
-                    "Version: ",
-                    (val) => {
-                        try {
-                            normalizedVersion = validateMoodleVersionInput(val);
-                            return undefined;
-                        } catch (err: any) {
-                            return err.message;
-                        }
-                    }
-                );
-
-                // 4a. Webservices pattern
-                console.log(SEPARATOR);
-                let webservices: string[] = ["*"];
-                await askQuestion(
-                    ctx,
-                    "Please enter the webservices pattern",
-                    "core_user_*, local_plugin_example",
-                    "Webservices: ",
-                    (val) => {
-                        try {
-                            webservices = parseWebservicesInput(val);
-                            return undefined;
-                        } catch (err: any) {
-                            return err.message;
-                        }
-                    }
-                );
-
-                // 5a. Save in project directory?
-                console.log(SEPARATOR);
-                let saveInProject = false;
-                await askQuestion(
-                    ctx,
-                    "Would you like to save the schemas in a project directory? (y/n)",
-                    "y, yes, n, no",
-                    "Response: ",
-                    (val) => {
-                        try {
-                            saveInProject = parseYesNoInput(val);
-                            return undefined;
-                        } catch (err: any) {
-                            return err.message;
-                        }
-                    }
-                );
-
-                let outDir: string | undefined;
-                if (saveInProject) {
-                    console.log(SEPARATOR);
-                    outDir = await askQuestion(
-                        ctx,
-                        "Please enter the path to the schemas directory",
-                        "src/moodleSchemas",
-                        "Path: ",
-                        (val) => {
-                            if (!val.trim()) {
-                                return "Path cannot be empty.";
-                            }
-                            return undefined;
-                        }
-                    );
+            switch (sourceType) {
+                case "remote":
+                    newEntry = await promptOfficialSource(ctx, namespace);
+                    break;
+                case "local":
+                    newEntry = await promptLocalSource(ctx, namespace);
+                    break;
+                case "repository":
+                    newEntry = await promptRepositorySource(ctx, namespace);
+                    break;
+                default: {
+                    const exhaustiveCheck: never = sourceType;
+                    throw new Error(`Unsupported source type: ${exhaustiveCheck}`);
                 }
-
-                newEntry = {
-                    namespace,
-                    source: {
-                        type: "moodle-official",
-                        version: normalizedVersion,
-                    },
-                    webservices,
-                    ...(outDir ? { outDir } : {}),
-                };
-            } else {
-                // 3b. Moodle local directory path
-                console.log(SEPARATOR);
-                let localPath = "";
-                await askQuestion(
-                    ctx,
-                    "Please enter the path to your Moodle directory",
-                    "~/projects/moodle",
-                    "Path: ",
-                    (val) => {
-                        try {
-                            localPath = validateLocalPathInput(val);
-                            return undefined;
-                        } catch (err: any) {
-                            return err.message;
-                        }
-                    }
-                );
-
-                // 4b. Webservices pattern
-                console.log(SEPARATOR);
-                let webservices: string[] = ["*"];
-                await askQuestion(
-                    ctx,
-                    "Please enter the webservices pattern",
-                    "core_user_*, local_plugin_example",
-                    "Webservices: ",
-                    (val) => {
-                        try {
-                            webservices = parseWebservicesInput(val);
-                            return undefined;
-                        } catch (err: any) {
-                            return err.message;
-                        }
-                    }
-                );
-
-                // 5b. Local mode requires outDir
-                console.log(SEPARATOR);
-                const outDir = await askQuestion(
-                    ctx,
-                    "Please enter the directory to save the schemas",
-                    "src/moodleLegacySchemas",
-                    "Path: ",
-                    (val) => {
-                        if (!val.trim()) {
-                            return "Path cannot be empty.";
-                        }
-                        return undefined;
-                    }
-                );
-
-                newEntry = {
-                    namespace,
-                    source: {
-                        type: "moodle-local",
-                        path: localPath,
-                    },
-                    webservices,
-                    outDir,
-                };
             }
 
             sessionCreatedEntries.push(newEntry);
