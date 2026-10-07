@@ -1,28 +1,10 @@
 #!/usr/bin/env node
 import { promptDeleteSchemas } from "./interactive/delete-schemas";
+import { DeleteCliOptions } from "./interfaces/cli.interfaces";
+import { parseDeleteCliArgs } from "./utils/cli-parser";
 
-export interface DeleteCliOptions {
-    configPath?: string;
-}
-
-export function parseDeleteCliArgs(args: string[]): DeleteCliOptions {
-    let configPath: string | undefined;
-
-    for (let i = 0; i < args.length; i++) {
-        const arg = args[i];
-        if (!arg) {
-            continue;
-        }
-        if (arg === "--config" && i + 1 < args.length) {
-            configPath = args[i + 1];
-            i++;
-        } else if (arg.startsWith("--config=")) {
-            configPath = arg.slice("--config=".length);
-        }
-    }
-
-    return { configPath };
-}
+export type { DeleteCliOptions };
+export { parseDeleteCliArgs };
 
 async function main(): Promise<void> {
     const { configPath } = parseDeleteCliArgs(process.argv.slice(2));

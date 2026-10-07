@@ -11,12 +11,9 @@ export const colors = {
 
 export const SEPARATOR = "-".repeat(85);
 
-export interface PromptContext {
-    rl?: readline.Interface;
-    mockAnswers?: string[];
-    input?: NodeJS.ReadableStream;
-    output?: NodeJS.WritableStream;
-}
+import { PromptContext } from "../interfaces/cli.interfaces";
+
+export type { PromptContext };
 
 export function createPromptInterface(
     input: NodeJS.ReadableStream = defaultInput,
