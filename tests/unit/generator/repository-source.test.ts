@@ -226,6 +226,7 @@ describe("Remote Repository & Submodules Suite (Punto 5)", () => {
                 "--depth",
                 "1",
                 "--shallow-submodules",
+                "--single-branch",
                 "--jobs",
                 "8",
             ]);

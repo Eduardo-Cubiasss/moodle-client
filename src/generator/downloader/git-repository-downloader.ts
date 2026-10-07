@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
+import pLimit from "p-limit";
 import { simpleGit, SimpleGit } from "simple-git";
 import {
     GitRepositoryCloneOptions,
@@ -21,6 +22,7 @@ export async function syncSubmodulesResilient(
         return { total: 0, successful: 0, failed: [] };
     }
 
+    const batchStart = Date.now();
     try {
         await git.submoduleUpdate([
             "--init",
@@ -28,17 +30,23 @@ export async function syncSubmodulesResilient(
             "--depth",
             "1",
             "--shallow-submodules",
+            "--single-branch",
             "--jobs",
             "8",
         ]);
+        const elapsed = ((Date.now() - batchStart) / 1000).toFixed(1);
+        if (!silent) {
+            console.log(`[moodle-client] Submodules synchronized in batch (${elapsed}s).`);
+        }
         return { total: 1, successful: 1, failed: [] };
     } catch (_batchErr) {
         if (!silent) {
             console.warn(
-                "[moodle-client] Warning: Batch submodule sync failed. Recovering accessible submodules individually..."
+                "[moodle-client] Warning: Batch submodule sync failed. Recovering accessible submodules in parallel..."
             );
         }
 
+        const fallbackStart = Date.now();
         const failedList: string[] = [];
         let successCount = 0;
 
@@ -54,29 +62,77 @@ export async function syncSubmodulesResilient(
             .map((l) => l.trim())
             .filter((l) => l.length > 0);
 
-        for (const line of lines) {
-            const parts = line.split(/\s+/);
-            const subPath = parts[1];
-            if (!subPath) {
-                continue;
-            }
+        const subPaths = lines
+            .map((line) => line.split(/\s+/)[1])
+            .filter((p): p is string => Boolean(p));
 
-            try {
-                await git.submoduleUpdate(["--init", "--depth", "1", subPath]);
-                successCount++;
-            } catch (subErr: unknown) {
-                failedList.push(subPath);
-                if (!silent) {
-                    const msg = subErr instanceof Error ? subErr.message : String(subErr);
-                    console.warn(
-                        `[moodle-client] Warning: Submodule '${subPath}' could not be initialized (${msg}). Skipping.`
-                    );
-                }
-            }
+        const createLimit = typeof pLimit === "function" ? pLimit : (pLimit as any).default;
+        const limit = createLimit(8);
+
+        await Promise.all(
+            subPaths.map((subPath) =>
+                limit(async () => {
+                    const subStart = Date.now();
+                    try {
+                        await git.submoduleUpdate([
+                            "--init",
+                            "--depth",
+                            "1",
+                            "--single-branch",
+                            subPath,
+                        ]);
+                        successCount++;
+                        if (!silent) {
+                            const subElapsed = ((Date.now() - subStart) / 1000).toFixed(1);
+                            console.log(`[moodle-client] Submodule '${subPath}' synchronized (${subElapsed}s).`);
+                        }
+                    } catch (subErr: unknown) {
+                        const errMsg = subErr instanceof Error ? subErr.message : String(subErr);
+                        const isShallowErr =
+                            errMsg.toLowerCase().includes("unadvertised object") ||
+                            errMsg.toLowerCase().includes("shallow") ||
+                            errMsg.toLowerCase().includes("reference is not a tree");
+
+                        if (isShallowErr) {
+                            try {
+                                await git.submoduleUpdate([
+                                    "--init",
+                                    "--single-branch",
+                                    subPath,
+                                ]);
+                                successCount++;
+                                if (!silent) {
+                                    const subElapsed = ((Date.now() - subStart) / 1000).toFixed(1);
+                                    console.log(
+                                        `[moodle-client] Submodule '${subPath}' synchronized without shallow (${subElapsed}s).`
+                                    );
+                                }
+                                return;
+                            } catch {
+                                // Fall through to recording failure
+                            }
+                        }
+
+                        failedList.push(subPath);
+                        if (!silent) {
+                            console.warn(
+                                `[moodle-client] Warning: Submodule '${subPath}' could not be initialized (${errMsg}). Skipping.`
+                            );
+                        }
+                    }
+                })
+            )
+        );
+
+        const fallbackElapsed = ((Date.now() - fallbackStart) / 1000).toFixed(1);
+        if (!silent) {
+            console.log(
+                `[moodle-client] Submodule synchronization finished in ${fallbackElapsed}s (${successCount}/${subPaths.length} ready).`
+            );
         }
 
         return {
-            total: lines.length,
+            total: subPaths.length,
             successful: successCount,
             failed: failedList,
         };
@@ -101,12 +157,18 @@ export async function cloneRepository(
         branch,
     ];
 
+    const cloneStart = Date.now();
     try {
         await git.clone(options.repoUrl, options.targetPath, cloneOptions);
     } catch (err: unknown) {
         const rawMsg = err instanceof Error ? err.message : String(err);
         const cleanMsg = sanitizeGitError(rawMsg, options.token);
         throw new Error(cleanMsg);
+    }
+
+    const cloneElapsed = ((Date.now() - cloneStart) / 1000).toFixed(1);
+    if (!options.silent) {
+        console.log(`[moodle-client] Base repository cloned (${cloneElapsed}s).`);
     }
 
     const repoGit = options.gitInstance ?? simpleGit(options.targetPath);
