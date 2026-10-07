@@ -146,6 +146,7 @@ const response = await moodleClient({
 
 ## Where to go next
 
+- [Web Services Guide](webservices-guide.md) — complete guide to generating and consuming typed web services.
 - [API reference](api-reference.md) — every class, method and type.
 - [Errors](errors.md) — what gets thrown and how to tell the cases apart.
 - [examples/](../examples) — runnable scripts for the usual shapes.

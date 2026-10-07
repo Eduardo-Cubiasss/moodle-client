@@ -340,18 +340,45 @@ Detailed explanation of error handling can be found in [docs/errors.md](docs/err
 
 > [!NOTE]
 > Moodle 4.5 web services are already **bundled out of the box** in the `webservice` namespace (`moodle.webservice.*`).
-> You **only** need the generator if you want custom namespaces, schemas for other Moodle versions (e.g. Moodle 4.4), or schemas for a local Moodle instance with custom plugins.
+> You **do not** need to generate or configure anything to call standard Moodle web services. You only need the CLI tools if you want custom namespaces, schemas for other Moodle versions (e.g. 4.4, 5.0), local plugin directories, or remote Git repositories.
 
-### 1. Configuration in `package.json`
+### 1. Interactive CLI Commands
 
-Configure one or more schema sources under the `"moodle-client"` array in your `package.json`:
+When you need to work with custom Moodle versions, institutional forks, or proprietary plugins, three dedicated CLI tools manage the entire schema lifecycle:
+
+#### `npx moodle-create-schemas`
+Launches an interactive console wizard that guides you through registering a new schema source:
+- Prompts for namespace name, source type (**Official GitHub**, **Local Directory**, or **Remote Git Repository**), webservice pattern filter, and output directory (`outDir`).
+- Validates parameters (enforcing required `outDir` for local directories and remote repositories).
+- Appends the configuration entry into the `"moodle-client"` array in your `package.json` and immediately runs generation.
+
+#### `npx moodle-generate-schemas`
+Reads all configured namespaces from `package.json` and compiles them into TypeScript declaration files (`.d.ts`):
+- **Smart cache check**: If schemas already exist in your project's `outDir`, re-downloading is skipped and types synchronize in milliseconds (~0.2s).
+- **Extraction pipeline**: Downloads official releases, shallow-clones remote Git repositories (with concurrent submodule synchronization), or scans local directories, extracting PHP method signatures from `db/services.php` and `classes/external/*.php`.
+- **Declaration merging**: Generates a master barrel (`index.d.ts`) that extends `MoodleClient` with each configured namespace so your editor provides instant autocompletion.
+- **Flags**:
+  - `--force` (`-f`): Bypasses cached schemas, purges old files, and forces a clean clone and re-extraction.
+  - `--config <path>`: Uses a custom configuration file path instead of `package.json`.
+
+#### `npx moodle-delete-schemas`
+Interactively removes a schema namespace without breaking custom code:
+- Presents a numbered menu of configured namespaces.
+- Removes the chosen namespace entry from `package.json`.
+- Selectively deletes generated `.webservice.d.ts` schema files and barrels from `outDir` and the package, while safely preserving any custom files in that directory.
+
+> For a complete walkthrough of configuring custom web services, see the [Web Services Guide](docs/webservices-guide.md).
+
+### 2. Configuration in `package.json`
+
+Configurations are declared under the `"moodle-client"` array in your `package.json`:
 
 ```json
 {
   "name": "my-moodle-app",
   "version": "1.0.0",
-  "scripts": {
-    "moodle:generate-schemas": "moodle-generate-schemas"
+  "dependencies": {
+    "@didactika/moodle-client": "^2.3.10"
   },
   "moodle-client": [
     {
@@ -363,13 +390,14 @@ Configure one or more schema sources under the `"moodle-client"` array in your `
       "webservices": ["*"]
     },
     {
-      "namespace": "legacy",
+      "namespace": "customRepo",
       "source": {
-        "type": "moodle",
-        "version": "4.4"
+        "type": "repository",
+        "url": "https://github.com/my-org/moodle.git",
+        "branch": "main"
       },
-      "webservices": ["core_course_*", "mod_assign_*"],
-      "outDir": "./schemas/v4.4"
+      "webservices": ["*"],
+      "outDir": "src/schemas"
     },
     {
       "namespace": "localDev",
@@ -378,7 +406,7 @@ Configure one or more schema sources under the `"moodle-client"` array in your `
         "path": "~/moodle"
       },
       "webservices": ["core_*", "local_*"],
-      "outDir": "./schemas/local"
+      "outDir": "src/schemas"
     }
   ]
 }
@@ -386,22 +414,14 @@ Configure one or more schema sources under the `"moodle-client"` array in your `
 
 #### Configuration Options
 
-- `namespace` (string, required): Unique namespace identifier used on `MoodleClient` (e.g. `moodle.webservice.*`, `moodle.legacy.*`, `moodle.localDev.*`).
+- `namespace` (string, required): Unique namespace identifier used on `MoodleClient` (e.g. `moodle.webservice.*`, `moodle.customRepo.*`, `moodle.localDev.*`).
 - `source` (object, required):
   - **Official release**: `{ "type": "moodle", "version": "4.5" }`
+  - **Remote Git repository**: `{ "type": "repository", "url": "https://github.com/my-org/moodle.git", "branch": "main" }`
   - **Local instance**: `{ "type": "local", "path": "/path/to/moodle" }`
 - `webservices` (string[], required): Service names or wildcard patterns to include (e.g. `["*"]`, `["core_*"]`, `["mod_quiz_*"]`).
-- `outDir` (string): Output directory path. Required when `source.type` is `"local"`, optional for `"moodle"`. Generated files are organized under `[outDir]/{namespace}/`.
-
-### 2. Run the Generator
-
-```console
-npx moodle-generate-schemas
-```
-
-#### CLI Flags:
-- `--force` or `-f`: Bypasses existing cached schemas and forces re-extraction and regeneration.
-- `--config <path>`: Specifies a custom configuration file path (defaults to current project `package.json`).
+- `outDir` (string): Output directory path in your project. Required when `source.type` is `"local"` or `"repository"`, optional for `"moodle"`. Generated files are organized under `[outDir]/{namespace}/`.
+- `concurrency` (number, optional): Concurrency limit for PHP schema extraction workers (defaults to 8).
 
 ### 3. Calling Web Services via Custom Namespaces
 
@@ -409,24 +429,30 @@ Once generated, TypeScript declaration merging automatically attaches each names
 
 ```ts
 import { MoodleClient } from "@didactika/moodle-client";
+import type { webservice, customRepo, localDev } from "@didactika/moodle-client";
 
 const moodle = new MoodleClient({
   rootURL: "https://moodle.example.org",
   token: process.env.MOODLE_TOKEN!,
 });
 
-// Default bundled namespace:
+// 1. Default bundled namespace 'webservice' (pre-installed, zero generator config needed):
+// Directly invokes official Moodle core functions with full IDE autocomplete and parameter validation.
 const { data: site } = await moodle.webservice.core_webservice_get_site_info();
 
-// Custom Moodle 4.4 namespace:
-const { data: legacyCourses } = await moodle.legacy.core_course_get_courses();
+// 2. Custom namespace 'customRepo' (generated from a remote Git repository specified in package.json):
+// Allows calling functions from a specific institutional fork with dedicated, isolated TypeScript types.
+const { data: repoUsers } = await moodle.customRepo.core_user_get_users({
+  criteria: [{ key: "id", value: "1" }],
+});
 
-// Local development namespace:
+// 3. Local development namespace 'localDev' (generated from a local plugin source directory):
+// Provides immediate type checking and documentation for custom plugins in progress (e.g. local_myplugin_*).
 const { data: customData } = await moodle.localDev.local_myplugin_get_info();
 ```
 
-- **Smart Cache & Governance**: The generator detects existing schemas and only regenerates when `--force` is passed.
-- **Selective Cleanup**: When regenerating an `outDir` namespace, stale generated webservice files are removed while custom user files in the same directory are safely preserved.
+- **Smart Cache & Governance**: The generator detects existing schemas in `outDir` and synchronizes in milliseconds (~0.2s). Run with `--force` when upstream changes occur.
+- **Selective Cleanup**: When regenerating or deleting an `outDir` namespace, stale generated webservice files are removed while custom user files in the same directory are safely preserved.
 - **Exact PascalCase Naming**: Generated types use unabbreviated Moodle function names (e.g., `core_course_get_courses` produces `CoreCourseGetCoursesParams` and `CoreCourseGetCoursesReturns`).
 - **Frankenstyle File Hierarchy**: Schemas are structured following Moodle's component hierarchy (`core/course/get_courses.webservice.d.ts`).
 
@@ -439,6 +465,8 @@ The generator emits clear, actionable error blocks:
 | `ERR_CONFIG_INVALID_JSON` | Invalid Configuration File | `package.json` contains malformed JSON syntax. Fix syntax errors. |
 | `ERR_CONFIG_DUPLICATE_NAMESPACE` | Duplicate Namespace | Two entries share the same `namespace`. Use unique namespace names. |
 | `ERR_CONFIG_MISSING_OUTDIR_LOCAL` | Missing outDir in Local Mode | When using `source.type: "local"`, `outDir` is required. |
+| `ERR_CONFIG_MISSING_OUTDIR_REPOSITORY` | Missing outDir in Repository Mode | When using `source.type: "repository"`, `outDir` is required. |
+| `ERR_CONFIG_MISSING_REPOSITORY_URL` | Missing Repository URL | When using `source.type: "repository"`, `source.url` is required. |
 | `ERR_MOODLE_VERSION_UNSUPPORTED` | Unsupported Moodle Version | Configured Moodle version is lower than 2.0. Set `"version"` to a supported version (e.g. `"4.5"`). |
 | `ERR_PHP_NOT_FOUND` | PHP CLI Not Found | `php` binary was not found in system `PATH`. Install PHP 7.4 or higher. |
 | `ERR_MOODLE_PATH_NOT_ROOT` | Invalid Moodle Root Directory | The directory specified in `source.path` has no `version.php`. Point directly to the Moodle installation root. |
