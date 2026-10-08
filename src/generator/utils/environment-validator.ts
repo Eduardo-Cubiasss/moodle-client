@@ -151,6 +151,44 @@ export async function validateOutputDirectoryNotEmpty(outDir: string, namespace?
 }
 
 /**
+ * Verifies that a local Moodle codebase path exists and has read/execute permissions.
+ * Throws ERR_MOODLE_PATH_PERMISSION_DENIED if permissions are lacking.
+ */
+export async function verifyLocalMoodlePath(moodlePath: string, namespace?: string): Promise<void> {
+    try {
+        await fs.access(moodlePath, fs.constants.F_OK);
+    } catch (err: unknown) {
+        const error = err as NodeJS.ErrnoException;
+        if (error.code === "EACCES" || error.code === "EPERM") {
+            throw createGeneratorError({
+                code: "ERR_MOODLE_PATH_PERMISSION_DENIED",
+                title: "Moodle Path Permission Denied",
+                details: `Permission denied when accessing Moodle codebase at '${moodlePath}'. The directory cannot be read.`,
+                action: `Grant read and execute permissions to the directory (e.g., chmod u+rx '${moodlePath}'), or run 'npx moodle-delete-schemas' to remove the corrupted schema and 'npx moodle-create-schemas' to recreate it.`,
+                cause: err,
+            });
+        }
+        return;
+    }
+
+    try {
+        await fs.access(moodlePath, fs.constants.R_OK);
+        await fs.readdir(moodlePath);
+    } catch (err: unknown) {
+        const error = err as NodeJS.ErrnoException;
+        if (error.code === "EACCES" || error.code === "EPERM") {
+            throw createGeneratorError({
+                code: "ERR_MOODLE_PATH_PERMISSION_DENIED",
+                title: "Moodle Path Permission Denied",
+                details: `Permission denied when accessing Moodle codebase at '${moodlePath}'. The directory cannot be read.`,
+                action: `Grant read and execute permissions to the directory (e.g., chmod u+rx '${moodlePath}'), or run 'npx moodle-delete-schemas' to remove the corrupted schema and 'npx moodle-create-schemas' to recreate it.`,
+                cause: err,
+            });
+        }
+    }
+}
+
+/**
  * Formats any error into the uniform CLI layout adhering to the color scheme and structure.
  */
 export function formatGeneratorError(error: unknown, useColors = true): string {
