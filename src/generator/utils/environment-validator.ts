@@ -203,10 +203,14 @@ export function formatGeneratorError(error: unknown, useColors = true): string {
     ) {
         const err = error as { title: string; code: string; details: string; action: string };
         if (useColors) {
+            const formattedAction = err.action.replace(
+                /'([^']+)'/g,
+                (_, cmd) => colors.orange(`'${cmd}'`)
+            );
             return (
                 `${colors.red("[moodle-client] ERROR:")} ${colors.bold(err.title)} ${colors.dim(`(${err.code})`)}\n` +
                 `${colors.bold("Details:")} ${err.details}\n` +
-                `${colors.orange("Action:")}  ${err.action}`
+                `${colors.orange("Action:")}  ${formattedAction}`
             );
         }
         return `[moodle-client] ERROR: ${err.title} (${err.code})\nDetails: ${err.details}\nAction:  ${err.action}`;
