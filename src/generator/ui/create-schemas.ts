@@ -140,7 +140,7 @@ export function validateLocalPathInput(rawPath: string): string {
         throw new Error(`Directory '${resolved}' does not exist.`);
     }
     try {
-        accessSync(resolved, constants.R_OK);
+        accessSync(resolved, constants.R_OK | (constants.X_OK ?? 0));
     } catch (err: unknown) {
         const error = err as NodeJS.ErrnoException;
         if (error.code === "EACCES" || error.code === "EPERM") {

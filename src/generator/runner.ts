@@ -543,8 +543,10 @@ export async function runGenerator(
                     const firstErr = result.errors[0];
                     if (targetMoodlePath && firstErr.code === "INVALID_MOODLE_PATH") {
                         try {
-                            await fs.access(targetMoodlePath, fs.constants.R_OK);
+                            await fs.access(targetMoodlePath, fs.constants.R_OK | (fs.constants.X_OK ?? 0));
                             await fs.readdir(targetMoodlePath);
+                            const versionFile = path.join(targetMoodlePath, "version.php");
+                            await fs.access(versionFile, fs.constants.R_OK);
                         } catch (permErr: unknown) {
                             const pErr = permErr as NodeJS.ErrnoException;
                             if (pErr.code === "EACCES" || pErr.code === "EPERM") {

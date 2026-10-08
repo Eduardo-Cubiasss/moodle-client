@@ -172,7 +172,7 @@ export async function verifyLocalMoodlePath(moodlePath: string, namespace?: stri
     }
 
     try {
-        await fs.access(moodlePath, fs.constants.R_OK);
+        await fs.access(moodlePath, fs.constants.R_OK | (fs.constants.X_OK ?? 0));
         await fs.readdir(moodlePath);
     } catch (err: unknown) {
         const error = err as NodeJS.ErrnoException;
@@ -182,6 +182,22 @@ export async function verifyLocalMoodlePath(moodlePath: string, namespace?: stri
                 title: "Moodle Path Permission Denied",
                 details: `Permission denied when accessing Moodle codebase at '${moodlePath}'. The directory cannot be read.`,
                 action: `Grant read and execute permissions to the directory (e.g., chmod u+rx '${moodlePath}'), or run 'npx moodle-delete-schemas' to remove the corrupted schema and 'npx moodle-create-schemas' to recreate it.`,
+                cause: err,
+            });
+        }
+    }
+
+    const versionPhp = path.join(moodlePath, "version.php");
+    try {
+        await fs.access(versionPhp, fs.constants.R_OK);
+    } catch (err: unknown) {
+        const error = err as NodeJS.ErrnoException;
+        if (error.code === "EACCES" || error.code === "EPERM") {
+            throw createGeneratorError({
+                code: "ERR_MOODLE_PATH_PERMISSION_DENIED",
+                title: "Moodle Path Permission Denied",
+                details: `Permission denied when accessing 'version.php' in Moodle codebase at '${moodlePath}'. The file cannot be read.`,
+                action: `Grant read and execute permissions to the directory and its files (e.g., chmod u+rx '${moodlePath}'), or run 'npx moodle-delete-schemas' to remove the corrupted schema and 'npx moodle-create-schemas' to recreate it.`,
                 cause: err,
             });
         }

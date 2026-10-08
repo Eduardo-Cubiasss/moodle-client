@@ -414,14 +414,7 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
         it("should throw ERR_MOODLE_PATH_PERMISSION_DENIED when local moodlePath exists but lacks read permissions", async () => {
             const moodleDir = path.join(tempDir, "moodle-unreadable");
             await fs.mkdir(moodleDir, { recursive: true });
-
-            const accessSpy = vi.spyOn(fs, "access").mockImplementation(async (target, mode) => {
-                if (target === moodleDir && mode === fs.constants.R_OK) {
-                    const err = new Error("EACCES: permission denied") as NodeJS.ErrnoException;
-                    err.code = "EACCES";
-                    throw err;
-                }
-            });
+            await fs.chmod(moodleDir, 0);
 
             try {
                 await verifyLocalMoodlePath(moodleDir);
@@ -435,7 +428,24 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
                 expect(genErr.action).toContain("npx moodle-delete-schemas");
                 expect(genErr.action).toContain("npx moodle-create-schemas");
             } finally {
-                accessSpy.mockRestore();
+                await fs.chmod(moodleDir, 0o755);
+            }
+        });
+
+        it("should throw ERR_MOODLE_PATH_PERMISSION_DENIED when directory lacks execute permission (mode 0444)", async () => {
+            const moodleDir = path.join(tempDir, "moodle-no-exec");
+            await fs.mkdir(moodleDir, { recursive: true });
+            await fs.chmod(moodleDir, 0o444);
+
+            try {
+                await verifyLocalMoodlePath(moodleDir);
+                expect.unreachable("Should have thrown ERR_MOODLE_PATH_PERMISSION_DENIED");
+            } catch (err: unknown) {
+                const genErr = err as MoodleGeneratorError;
+                expect(genErr.code).toBe("ERR_MOODLE_PATH_PERMISSION_DENIED");
+                expect(genErr.title).toBe("Moodle Path Permission Denied");
+            } finally {
+                await fs.chmod(moodleDir, 0o755);
             }
         });
 
