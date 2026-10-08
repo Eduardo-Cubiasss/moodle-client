@@ -82,7 +82,7 @@ export class MoodleClient {
      * @throws {URLError} when the site cannot be reached
      * @throws {MoodleException} and friends when Moodle reports an error
      */
-    async call<T = any>(
+    async call<T = unknown>(
         webServiceFunction: string,
         content: object = {},
         method?: HttpMethod,
@@ -129,7 +129,7 @@ export class MoodleClient {
  * Reach for {@link MoodleClient} when more than one call goes to the same
  * site, so the site and token are stated once instead of per call.
  */
-export const moodleClient = <T = any>(data: IDataRequest): Promise<MoodleResponse<T>> => {
+export const moodleClient = <T = unknown>(data: IDataRequest): Promise<MoodleResponse<T>> => {
     const client = new MoodleClient({
         rootURL: data.urlRequest.rootURL,
         token: data.urlRequest.token,
