@@ -11,11 +11,13 @@ import {
     validateOutputDirectoryNotEmpty,
     formatGeneratorError,
     createGeneratorError,
+    verifyLocalMoodlePath,
 } from "../../../src/generator/utils/environment-validator";
 import { loadPackageConfig } from "../../../src/generator/config/config-manager";
 import { cloneRepository } from "../../../src/generator/downloader/git-repository-downloader";
 import { promptDeleteSchemas } from "../../../src/generator/ui/delete-schemas";
 import { verifyOutDirWritable } from "../../../src/generator/runner";
+import { validateLocalPathInput } from "../../../src/generator/ui/create-schemas";
 
 describe("Usability Error Handling Suite (.idea/errors.md)", () => {
     let tempDir: string;
@@ -404,6 +406,50 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
                 expect(genErr.title).toBe("Network Connection Failed");
                 expect(genErr.details).toContain("network connection is unavailable or timed out");
                 expect(genErr.action).toContain("internet connection");
+            }
+        });
+    });
+
+    describe("10. moodlePath existe pero no tiene permisos de lectura", () => {
+        it("should throw ERR_MOODLE_PATH_PERMISSION_DENIED when local moodlePath exists but lacks read permissions", async () => {
+            const moodleDir = path.join(tempDir, "moodle-unreadable");
+            await fs.mkdir(moodleDir, { recursive: true });
+
+            const accessSpy = vi.spyOn(fs, "access").mockImplementation(async (target, mode) => {
+                if (target === moodleDir && mode === fs.constants.R_OK) {
+                    const err = new Error("EACCES: permission denied") as NodeJS.ErrnoException;
+                    err.code = "EACCES";
+                    throw err;
+                }
+            });
+
+            try {
+                await verifyLocalMoodlePath(moodleDir);
+                expect.unreachable("Should have thrown ERR_MOODLE_PATH_PERMISSION_DENIED");
+            } catch (err: unknown) {
+                const genErr = err as MoodleGeneratorError;
+                expect(genErr.code).toBe("ERR_MOODLE_PATH_PERMISSION_DENIED");
+                expect(genErr.title).toBe("Moodle Path Permission Denied");
+                expect(genErr.details).toContain("Permission denied when accessing Moodle codebase");
+                expect(genErr.action).toContain("chmod u+rx");
+                expect(genErr.action).toContain("npx moodle-delete-schemas");
+                expect(genErr.action).toContain("npx moodle-create-schemas");
+            } finally {
+                accessSpy.mockRestore();
+            }
+        });
+
+        it("should throw error in validateLocalPathInput when directory lacks read permissions", async () => {
+            const moodleDir = path.join(tempDir, "moodle-input-unreadable");
+            await fs.mkdir(moodleDir, { recursive: true });
+            await fs.chmod(moodleDir, 0);
+
+            try {
+                expect(() => validateLocalPathInput(moodleDir)).toThrowError(
+                    /Permission denied: Cannot read directory/
+                );
+            } finally {
+                await fs.chmod(moodleDir, 0o755);
             }
         });
     });

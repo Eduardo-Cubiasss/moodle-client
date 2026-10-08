@@ -1,5 +1,5 @@
 import fs from "fs/promises";
-import { existsSync } from "fs";
+import { existsSync, accessSync, constants } from "fs";
 import path from "path";
 import os from "os";
 import {
@@ -138,6 +138,14 @@ export function validateLocalPathInput(rawPath: string): string {
         : path.resolve(process.cwd(), trimmed);
     if (!existsSync(resolved)) {
         throw new Error(`Directory '${resolved}' does not exist.`);
+    }
+    try {
+        accessSync(resolved, constants.R_OK);
+    } catch (err: unknown) {
+        const error = err as NodeJS.ErrnoException;
+        if (error.code === "EACCES" || error.code === "EPERM") {
+            throw new Error(`Permission denied: Cannot read directory '${resolved}'. Grant read permissions (e.g. chmod u+rx '${resolved}').`);
+        }
     }
     return trimmed;
 }

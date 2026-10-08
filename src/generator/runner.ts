@@ -25,6 +25,7 @@ import {
     createGeneratorError,
     validateSchemaDeclarations,
     checkPhpEnvironment,
+    verifyLocalMoodlePath,
 } from "./utils/environment-validator";
 
 export interface RunGeneratorOptions {
@@ -485,6 +486,7 @@ export async function runGenerator(
                 ? path.join(os.homedir(), rawPath.slice(2))
                 : path.resolve(configDir, rawPath);
             shouldCleanup = false;
+            await verifyLocalMoodlePath(targetMoodlePath, entry.namespace);
         } else if (isRepositorySource(entry.source)) {
             const repoSource = entry.source;
             const tempCloneDir = path.join(
@@ -536,7 +538,25 @@ export async function runGenerator(
                     );
                 }
                 if (result.schemas.length === 0 && result.errors[0]) {
-                    throw mapExtractionErrorToGeneratorError(result.errors[0], targetMoodlePath);
+                    const firstErr = result.errors[0];
+                    if (targetMoodlePath && firstErr.code === "INVALID_MOODLE_PATH") {
+                        try {
+                            await fs.access(targetMoodlePath, fs.constants.R_OK);
+                            await fs.readdir(targetMoodlePath);
+                        } catch (permErr: unknown) {
+                            const pErr = permErr as NodeJS.ErrnoException;
+                            if (pErr.code === "EACCES" || pErr.code === "EPERM") {
+                                throw createGeneratorError({
+                                    code: "ERR_MOODLE_PATH_PERMISSION_DENIED",
+                                    title: "Moodle Path Permission Denied",
+                                    details: `Permission denied when accessing Moodle codebase at '${targetMoodlePath}'. The directory cannot be read.`,
+                                    action: `Grant read and execute permissions to the directory (e.g., chmod u+rx '${targetMoodlePath}'), or run 'npx moodle-delete-schemas' to remove the corrupted schema and 'npx moodle-create-schemas' to recreate it.`,
+                                    cause: permErr,
+                                });
+                            }
+                        }
+                    }
+                    throw mapExtractionErrorToGeneratorError(firstErr, targetMoodlePath);
                 }
             }
 
