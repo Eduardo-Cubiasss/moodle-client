@@ -119,7 +119,7 @@ describe("moodle-delete-schemas unit tests", () => {
             expect(nsDirExists).toBe(false);
         });
 
-        it("should preserve user files in outDir and not delete folder if user files exist", async () => {
+        it("should preserve user files in outDir and not delete folder if user files exist and user answers 'n'", async () => {
             const outDir = path.join(tempDir, "src/moodleLegacySchemas");
             const nsDir = path.join(outDir, "moodleLegacy");
             await fs.mkdir(nsDir, { recursive: true });
@@ -144,7 +144,7 @@ describe("moodle-delete-schemas unit tests", () => {
 
             await promptDeleteSchemas({
                 pkgPath: pkgJsonPath,
-                mockAnswers: ["1"],
+                mockAnswers: ["1", "n"],
                 baseDir: tempDir,
             });
 
@@ -165,6 +165,48 @@ describe("moodle-delete-schemas unit tests", () => {
             // Directory NOT deleted
             const nsDirExists = await fs.access(nsDir).then(() => true).catch(() => false);
             expect(nsDirExists).toBe(true);
+
+            // Root outDir also preserved
+            const outDirExists = await fs.access(outDir).then(() => true).catch(() => false);
+            expect(outDirExists).toBe(true);
+        });
+
+        it("should force delete all files including user files when user confirms 'y'", async () => {
+            const outDir = path.join(tempDir, "src/moodleLegacySchemas");
+            const nsDir = path.join(outDir, "moodleLegacy");
+            await fs.mkdir(nsDir, { recursive: true });
+
+            // Create generated file AND custom user file
+            await fs.writeFile(path.join(nsDir, "core_user_get_users.webservice.d.ts"), "// generated");
+            await fs.writeFile(path.join(nsDir, "index.d.ts"), "// generated barrel");
+            await fs.writeFile(path.join(nsDir, "my-custom-helper.ts"), "export const helper = 1;");
+
+            const initialPkg = {
+                name: "my-app",
+                "moodle-client": [
+                    {
+                        namespace: "moodleLegacy",
+                        source: { type: "local", path: "/path/to/moodle" },
+                        webservices: ["core_user_*"],
+                        outDir: "src/moodleLegacySchemas",
+                    },
+                ],
+            };
+            await fs.writeFile(pkgJsonPath, JSON.stringify(initialPkg, null, 2), "utf-8");
+
+            await promptDeleteSchemas({
+                pkgPath: pkgJsonPath,
+                mockAnswers: ["1", "y"],
+                baseDir: tempDir,
+            });
+
+            // Namespace directory should be completely deleted
+            const nsDirExists = await fs.access(nsDir).then(() => true).catch(() => false);
+            expect(nsDirExists).toBe(false);
+
+            // Root outDir PRESERVED (e.g. src/moodleLegacySchemas remains even if empty)
+            const outDirExists = await fs.access(outDir).then(() => true).catch(() => false);
+            expect(outDirExists).toBe(true);
         });
 
         it("should delete namespace in node_modules without failing if node_modules does not exist", async () => {
