@@ -96,12 +96,16 @@ export function reportProgressError(timer: NodeJS.Timeout | null, error: unknown
  */
 export async function runGeneratorWithProgress(
     configPath?: string,
-    options?: { force?: boolean }
+    options?: { force?: boolean; forceNamespaces?: string[] }
 ): Promise<void> {
     const barWidth = 30;
     const { startTime, timer } = startProgressBar(barWidth);
     try {
-        await runGenerator(configPath, { silent: true, force: options?.force });
+        await runGenerator(configPath, {
+            silent: true,
+            force: options?.force,
+            forceNamespaces: options?.forceNamespaces,
+        });
         stopProgressBar(startTime, timer, barWidth);
     } catch (error) {
         reportProgressError(timer, error);
