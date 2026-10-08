@@ -202,7 +202,7 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
     });
 
     describe("4. Outdir existe pero esta vacio y configuraciones existen", () => {
-        it("should throw ERR_OUTPUT_DIRECTORY_EMPTY in delete-schemas when outDir exists but is empty", async () => {
+        it("should cleanly delete namespace and clean up empty directory in delete-schemas", async () => {
             const emptyOutDir = path.join(tempDir, "empty-schemas");
             await fs.mkdir(emptyOutDir, { recursive: true });
 
@@ -219,20 +219,17 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
             };
             await fs.writeFile(pkgJsonPath, JSON.stringify(pkg, null, 2), "utf-8");
 
-            try {
-                await promptDeleteSchemas({
-                    pkgPath: pkgJsonPath,
-                    mockAnswers: ["1"],
-                    baseDir: tempDir,
-                });
-                expect.unreachable("Should have thrown ERR_OUTPUT_DIRECTORY_EMPTY");
-            } catch (err: unknown) {
-                const genErr = err as MoodleGeneratorError;
-                expect(genErr.code).toBe("ERR_OUTPUT_DIRECTORY_EMPTY");
-                expect(genErr.title).toBe("Output Directory Is Empty");
-                expect(genErr.details).toContain("exists but is completely empty");
-                expect(genErr.action).toContain("npx moodle-generate-schemas");
-            }
+            const result = await promptDeleteSchemas({
+                pkgPath: pkgJsonPath,
+                mockAnswers: ["1"],
+                baseDir: tempDir,
+            });
+
+            expect(result.deleted).toBe(true);
+            expect(result.deletedNamespace).toBe("mySchemas");
+
+            const updatedPkg = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"));
+            expect(updatedPkg["moodle-client"]).toHaveLength(0);
         });
 
         it("should validate that validateOutputDirectoryNotEmpty halts on empty directory", async () => {
