@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { promptCreateSchemas } from "./interactive/create-schemas";
+import { promptCreateSchemas } from "./ui/create-schemas";
 import { CreateCliOptions } from "./interfaces/cli.interfaces";
 import { parseCreateCliArgs } from "./utils/cli-parser";
 

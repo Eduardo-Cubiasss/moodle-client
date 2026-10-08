@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { promptDeleteSchemas } from "./interactive/delete-schemas";
+import { promptDeleteSchemas } from "./ui/delete-schemas";
 import { DeleteCliOptions } from "./interfaces/cli.interfaces";
 import { parseDeleteCliArgs } from "./utils/cli-parser";
 

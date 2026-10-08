@@ -10,7 +10,7 @@ import {
     normalizeMoodleVersion,
     isMoodleVersionSupported,
 } from "../config/config-manager";
-import { runGeneratorWithProgress } from "../ui/progress-bar";
+import { runGeneratorWithProgress } from "./progress-bar";
 import {
     colors,
     SEPARATOR,

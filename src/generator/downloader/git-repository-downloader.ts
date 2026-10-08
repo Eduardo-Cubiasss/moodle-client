@@ -7,7 +7,7 @@ import {
     GitRepositoryCloneOptions,
     SubmoduleSyncResult,
 } from "../interfaces/repository.interfaces";
-import { sanitizeGitError } from "../auth/credential-manager";
+import { sanitizeGitError } from "./credential-manager";
 
 /**
  * Synchronizes submodules with resilient fallback if batch initialization fails.
