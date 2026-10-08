@@ -16,7 +16,11 @@ import {
 } from "./config/config-manager";
 import { cloneMoodleVersion, cleanupMoodleDirectory } from "./downloader/moodle-downloader";
 import { cloneRepository } from "./downloader/git-repository-downloader";
-import { MoodleRepositorySource } from "./interfaces/config.interfaces";
+import {
+    isLocalSource,
+    isRepositorySource,
+    isOfficialSource,
+} from "./interfaces/config.interfaces";
 
 export interface RunGeneratorOptions {
     silent?: boolean;
@@ -286,23 +290,14 @@ export async function generateMasterBarrel(
     for (const entry of configs) {
         const typeName = `${toPascalCase(entry.namespace)}GeneratedServices`;
         let sourceDesc = "";
-        switch (entry.source.type) {
-            case "local":
-            case "moodle-local":
-                sourceDesc = `local (${(entry.source as any).path})`;
-                break;
-            case "repository":
-            case "moodle-repository":
-            case "remote":
-            case "git":
-                sourceDesc = `repository (${(entry.source as any).url}#${(entry.source as any).branch || "main"})`;
-                break;
-            case "moodle":
-            case "moodle-official":
-            case "official":
-            default:
-                sourceDesc = `moodle (v${(entry.source as any).version})`;
-                break;
+        if (isLocalSource(entry.source)) {
+            sourceDesc = `local (${entry.source.path})`;
+        } else if (isRepositorySource(entry.source)) {
+            sourceDesc = `repository (${entry.source.url}#${entry.source.branch || "main"})`;
+        } else if (isOfficialSource(entry.source)) {
+            sourceDesc = `moodle (v${entry.source.version})`;
+        } else {
+            sourceDesc = "unknown";
         }
         masterDts += `    /**\n     * Moodle web services namespace '${entry.namespace}'.\n     * Source: ${sourceDesc}\n     */\n`;
         masterDts += `    ${entry.namespace}: ${typeName};\n`;
@@ -371,7 +366,7 @@ export async function runGenerator(
     const force = Boolean(options?.force);
 
     // Concurrency limit of 2 as specified
-    const createLimit = typeof pLimit === "function" ? pLimit : (pLimit as any).default;
+    const createLimit = typeof pLimit === "function" ? pLimit : (pLimit as unknown as { default: typeof pLimit }).default;
     const limit = createLimit(2);
 
     // Check for unmanaged directories in outDir and inform user
@@ -461,62 +456,44 @@ export async function runGenerator(
         let targetMoodlePath: string | undefined;
         let shouldCleanup = false;
 
-        const sourceType = entry.source.type;
-        switch (sourceType) {
-            case "local":
-            case "moodle-local": {
-                const rawPath = (entry.source as any).path;
-                targetMoodlePath = rawPath.startsWith("~/")
-                    ? path.join(os.homedir(), rawPath.slice(2))
-                    : path.resolve(configDir, rawPath);
-                shouldCleanup = false;
-                break;
-            }
-
-            case "repository":
-            case "moodle-repository":
-            case "remote":
-            case "git": {
-                const repoSource = entry.source as MoodleRepositorySource;
-                const tempCloneDir = path.join(
-                    os.tmpdir(),
-                    `moodle-repo-${entry.namespace}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-                );
-                logInfo(
-                    `[moodle-client] [${entry.namespace}] Cloning repository from '${repoSource.url}' (branch: ${repoSource.branch || "main"})...`,
-                    options?.silent
-                );
-                targetMoodlePath = await cloneRepository({
-                    repoUrl: repoSource.url!,
-                    targetPath: tempCloneDir,
-                    branch: repoSource.branch || "main",
-                    silent: options?.silent,
-                });
-                shouldCleanup = true;
-                break;
-            }
-
-            case "moodle":
-            case "moodle-official":
-            case "official": {
-                const version = (entry.source as any).version;
-                const tempCloneDir = path.join(
-                    os.tmpdir(),
-                    `moodle-v${version}-${entry.namespace}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-                );
-                targetMoodlePath = await cloneMoodleVersion(version, tempCloneDir);
-                shouldCleanup = true;
-                break;
-            }
-
-            default: {
-                throw new MoodleGeneratorError({
-                    code: "ERR_CONFIG_INVALID_SOURCE_TYPE" as any,
-                    title: "Invalid Source Type",
-                    details: `Configuration '${entry.namespace}' has unknown source type '${sourceType}'.`,
-                    action: "Set 'source.type' to 'moodle-official', 'local', or 'repository'.",
-                });
-            }
+        if (isLocalSource(entry.source)) {
+            const rawPath = entry.source.path;
+            targetMoodlePath = rawPath.startsWith("~/")
+                ? path.join(os.homedir(), rawPath.slice(2))
+                : path.resolve(configDir, rawPath);
+            shouldCleanup = false;
+        } else if (isRepositorySource(entry.source)) {
+            const repoSource = entry.source;
+            const tempCloneDir = path.join(
+                os.tmpdir(),
+                `moodle-repo-${entry.namespace}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+            );
+            logInfo(
+                `[moodle-client] [${entry.namespace}] Cloning repository from '${repoSource.url}' (branch: ${repoSource.branch || "main"})...`,
+                options?.silent
+            );
+            targetMoodlePath = await cloneRepository({
+                repoUrl: repoSource.url,
+                targetPath: tempCloneDir,
+                branch: repoSource.branch || "main",
+                silent: options?.silent,
+            });
+            shouldCleanup = true;
+        } else if (isOfficialSource(entry.source)) {
+            const version = entry.source.version;
+            const tempCloneDir = path.join(
+                os.tmpdir(),
+                `moodle-v${version}-${entry.namespace}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+            );
+            targetMoodlePath = await cloneMoodleVersion(version, tempCloneDir);
+            shouldCleanup = true;
+        } else {
+            throw new MoodleGeneratorError({
+                code: "ERR_CONFIG_INVALID_JSON",
+                title: "Invalid Source Type",
+                details: `Configuration '${entry.namespace}' has unknown source type.`,
+                action: "Set 'source.type' to 'moodle-official', 'local', or 'repository'.",
+            });
         }
 
         try {

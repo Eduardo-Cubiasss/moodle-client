@@ -62,7 +62,7 @@ export interface IDataRequest {
  * because that is what axios typed it as; pass a type argument to
  * `moodleClient<T>()` to get a checked body instead.
  */
-export interface IMoodleResponse<T = any> {
+export interface IMoodleResponse<T = unknown> {
     data: T;
     status: number;
     statusText: string;

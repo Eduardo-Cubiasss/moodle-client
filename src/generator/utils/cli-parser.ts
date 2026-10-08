@@ -10,11 +10,13 @@ import {
 export function parseConfigArg(args: string[]): string | undefined {
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
-        if (arg === "--config" && i + 1 < args.length) {
-            return args[i + 1];
-        }
-        if (arg.startsWith("--config=")) {
-            return arg.slice("--config=".length);
+        if (arg !== undefined) {
+            if (arg === "--config" && i + 1 < args.length) {
+                return args[i + 1];
+            }
+            if (arg.startsWith("--config=")) {
+                return arg.slice("--config=".length);
+            }
         }
     }
     return undefined;

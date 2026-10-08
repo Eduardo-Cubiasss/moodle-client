@@ -66,7 +66,7 @@ export async function syncSubmodulesResilient(
             .map((line) => line.split(/\s+/)[1])
             .filter((p): p is string => Boolean(p));
 
-        const createLimit = typeof pLimit === "function" ? pLimit : (pLimit as any).default;
+        const createLimit = typeof pLimit === "function" ? pLimit : (pLimit as unknown as { default: typeof pLimit }).default;
         const limit = createLimit(8);
 
         await Promise.all(
