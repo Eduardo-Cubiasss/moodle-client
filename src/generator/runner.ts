@@ -314,17 +314,6 @@ export async function generateMasterBarrel(
     await fs.writeFile(path.join(targetSchemasDir, "index.js"), "export {};\n", "utf-8");
     await fs.writeFile(path.join(targetSchemasDir, "index.mjs"), "export {};\n", "utf-8");
 
-    // Also update src/schemas if developing in moodle-client repo
-    const srcSchemasDir = path.join(pkgDir, "src/schemas");
-    if (existsSync(srcSchemasDir)) {
-        try {
-            await fs.writeFile(path.join(srcSchemasDir, "index.d.ts"), masterDts, "utf-8");
-            await fs.writeFile(path.join(srcSchemasDir, "index.d.mts"), masterDts, "utf-8");
-        } catch {
-            // Ignore
-        }
-    }
-
     // Also write master barrel to outDir root if configured
     if (configDir) {
         const uniqueOutDirs = new Set<string>();
