@@ -8,6 +8,7 @@ import {
     SubmoduleSyncResult,
 } from "../interfaces/repository.interfaces";
 import { sanitizeGitError } from "./credential-manager";
+import { checkGitEnvironment, createGeneratorError } from "../utils/environment-validator";
 
 /**
  * Synchronizes submodules with resilient fallback if batch initialization fails.
@@ -145,6 +146,10 @@ export async function syncSubmodulesResilient(
 export async function cloneRepository(
     options: GitRepositoryCloneOptions
 ): Promise<string> {
+    if (!options.gitInstance) {
+        await checkGitEnvironment();
+    }
+
     const branch = options.branch || "main";
     const git = options.gitInstance ?? simpleGit();
 
@@ -163,6 +168,53 @@ export async function cloneRepository(
     } catch (err: unknown) {
         const rawMsg = err instanceof Error ? err.message : String(err);
         const cleanMsg = sanitizeGitError(rawMsg, options.token);
+
+        if (/git:\s*(command\s*)?not found|spawn git ENOENT|not recognized as an internal or external command/i.test(rawMsg)) {
+            throw createGeneratorError({
+                code: "ERR_GIT_NOT_FOUND",
+                title: "Git Executable Not Found",
+                details: "Git CLI is not installed or not accessible in your system PATH.",
+                action: 'Install Git and ensure the "git" executable is accessible in your system PATH.',
+                cause: err,
+            });
+        }
+
+        const isRepoNotFound =
+            /repository.*not found|remote:.*not found|404|does not exist|cannot find repository/i.test(rawMsg);
+        if (isRepoNotFound) {
+            throw createGeneratorError({
+                code: "ERR_REPOSITORY_NOT_FOUND",
+                title: "Remote Repository Not Found",
+                details: `The remote repository at '${options.repoUrl}' could not be found or is inaccessible (404 Not Found).`,
+                action: `Verify the repository URL. Run 'npx moodle-delete-schemas' to select and remove the corrupt schema, then run 'npx moodle-create-schemas' to reconfigure.`,
+                cause: err,
+            });
+        }
+
+        const isAuthFailed =
+            /authentication failed|invalid username or password|permission to .* denied|terminal prompts disabled|could not read username|401|403|access denied/i.test(rawMsg);
+        if (isAuthFailed) {
+            throw createGeneratorError({
+                code: "ERR_REPOSITORY_AUTH_FAILED",
+                title: "Repository Authentication Failed",
+                details: `Authentication failed for repository '${options.repoUrl}'. The provided credentials or Personal Access Token are invalid (HTTP 401/403).`,
+                action: `Verify your Personal Access Token or credentials. Run 'npx moodle-delete-schemas' to select and remove the corrupt schema, then run 'npx moodle-create-schemas' to reconfigure.`,
+                cause: err,
+            });
+        }
+
+        const isNetwork =
+            /ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ETIMEDOUT|fetch failed|network\s*(error|is unreachable)|could not resolve host|fatal:\s*unable to access|failed to connect/i.test(rawMsg);
+        if (isNetwork) {
+            throw createGeneratorError({
+                code: "ERR_NETWORK_DISCONNECTED",
+                title: "Network Connection Failed",
+                details: `Failed to connect to remote host for repository '${options.repoUrl}'. The network connection is unavailable or timed out.`,
+                action: "Check your internet connection, proxy settings, or firewall and try again.",
+                cause: err,
+            });
+        }
+
         throw new Error(cleanMsg);
     }
 

@@ -17,6 +17,7 @@ import {
     createPromptInterface,
     askQuestion,
 } from "./prompt-helpers";
+import { validateOutputDirectoryNotEmpty } from "../utils/environment-validator";
 
 export function validateDeleteOption(
     optionStr: string,
@@ -127,8 +128,10 @@ export async function promptDeleteSchemas(
 
         // 1. Clean outDir files with .webservice.d.ts signature
         if (targetEntry.outDir) {
-            const nsOutDir = path.resolve(baseDir, targetEntry.outDir, targetNs);
+            const outDirRoot = path.resolve(baseDir, targetEntry.outDir);
+            const nsOutDir = path.resolve(outDirRoot, targetNs);
             if (existsSync(nsOutDir)) {
+                await validateOutputDirectoryNotEmpty(nsOutDir, targetNs);
                 await selectiveCleanNamespace(nsOutDir, true);
                 try {
                     const remaining = await fs.readdir(nsOutDir);
@@ -138,6 +141,8 @@ export async function promptDeleteSchemas(
                 } catch {
                     // Ignore rmdir error
                 }
+            } else if (existsSync(outDirRoot)) {
+                await validateOutputDirectoryNotEmpty(outDirRoot, targetNs);
             }
 
             // Check if any other configuration uses the same outDir
