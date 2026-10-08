@@ -31,6 +31,7 @@ import {
 export interface RunGeneratorOptions {
     silent?: boolean;
     force?: boolean;
+    forceNamespaces?: string[];
 }
 
 function logInfo(message: string, silent?: boolean): void {
@@ -382,6 +383,28 @@ export async function runGenerator(
     const createLimit = typeof pLimit === "function" ? pLimit : (pLimit as unknown as { default: typeof pLimit }).default;
     const limit = createLimit(2);
 
+    // Prune orphaned/unmanaged schema namespaces from dist/schemas
+    try {
+        if (existsSync(targetSchemasDir)) {
+            const configuredNamespaces = new Set(configs.map((c) => c.namespace));
+            const distEntries = await fs.readdir(targetSchemasDir, { withFileTypes: true });
+            for (const entry of distEntries) {
+                if (entry.isDirectory() && !configuredNamespaces.has(entry.name)) {
+                    const srcSchemaDir = path.join(pkgDir, "src/schemas", entry.name);
+                    if (!existsSync(srcSchemaDir)) {
+                        await fs.rm(path.join(targetSchemasDir, entry.name), { recursive: true, force: true });
+                        logInfo(
+                            `[moodle-client] Cleaned orphaned schema namespace '${entry.name}' from '@didactika/moodle-client'.`,
+                            options?.silent
+                        );
+                    }
+                }
+            }
+        }
+    } catch {
+        // Ignore dist prune error
+    }
+
     // Check for unmanaged directories in outDir and inform user
     if (configDir) {
         const configuredNamespaces = new Set(configs.map((c) => c.namespace));
@@ -423,9 +446,10 @@ export async function runGenerator(
         const nsProjectOutDir = entry.outDir
             ? path.resolve(configDir, entry.outDir, entry.namespace)
             : undefined;
+        const isForced = force || Boolean(options?.forceNamespaces?.includes(entry.namespace));
 
         // Check if outDir cache already exists and force is not set
-        if (nsProjectOutDir && !force) {
+        if (nsProjectOutDir && !isForced) {
             await validateSchemaDeclarations(nsProjectOutDir, entry.namespace);
             const existsWithSchemas = await hasExistingSchemas(nsProjectOutDir);
             if (existsWithSchemas) {
@@ -449,7 +473,7 @@ export async function runGenerator(
         }
 
         // Check if internal package schemas already exist and force is not set (no outDir mode)
-        if (!nsProjectOutDir && !force) {
+        if (!nsProjectOutDir && !isForced) {
             const existsInDist = await hasExistingSchemas(nsDistDir);
             const srcSchemasNsDir = path.join(pkgDir, "src/schemas", entry.namespace);
             const existsInSrc = await hasExistingSchemas(srcSchemasNsDir);
@@ -470,7 +494,8 @@ export async function runGenerator(
             }
         }
 
-        // Clean stale webservices while strictly preserving user files
+        // Clean stale webservices in dist and outDir
+        await fs.rm(nsDistDir, { recursive: true, force: true });
         if (nsProjectOutDir) {
             await fs.mkdir(nsProjectOutDir, { recursive: true });
             await selectiveCleanNamespace(nsProjectOutDir);

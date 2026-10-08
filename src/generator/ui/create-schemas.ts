@@ -515,7 +515,9 @@ export async function promptCreateSchemas(
         if (options?.generatorRunner) {
             await options.generatorRunner(resolvedPkgPath);
         } else {
-            await runGeneratorWithProgress(resolvedPkgPath);
+            await runGeneratorWithProgress(resolvedPkgPath, {
+                forceNamespaces: sessionCreatedEntries.map((e) => e.namespace),
+            });
         }
 
         return sessionCreatedEntries;

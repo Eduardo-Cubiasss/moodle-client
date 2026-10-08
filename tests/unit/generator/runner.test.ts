@@ -266,4 +266,148 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
         const generatedFiles = await fs.readdir(courseDir);
         expect(generatedFiles.some((f) => f.startsWith("get_courses.webservice"))).toBe(true);
     });
+
+    it("should prune orphaned schema namespaces in dist/schemas that are not configured in package.json", async () => {
+        const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
+            {
+                namespace: "activeNs",
+                source: {
+                    type: "moodle",
+                    version: "4.4",
+                },
+                webservices: ["core_user_*"],
+            },
+        ];
+
+        vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue(fakeConfigs);
+        vi.spyOn(downloader, "cloneMoodleVersion").mockResolvedValue(path.join(tempDir, "cloned-moodle"));
+        vi.spyOn(downloader, "cleanupMoodleDirectory").mockResolvedValue();
+        vi.mocked(extractWebservice).mockResolvedValue({ schemas: [], errors: [] });
+
+        const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+        const distSchemasDir = path.join(nodeModulesDir, "dist/schemas");
+        const orphanDir = path.join(distSchemasDir, "orphanedOldNs");
+        await fs.mkdir(orphanDir, { recursive: true });
+        await fs.writeFile(path.join(orphanDir, "stale.d.ts"), "// stale schema", "utf-8");
+
+        await fs.writeFile(
+            path.join(nodeModulesDir, "package.json"),
+            JSON.stringify({ name: "@didactika/moodle-client" }),
+            "utf-8"
+        );
+        await fs.writeFile(path.join(nodeModulesDir, "dist/index.d.ts"), "// index\n", "utf-8");
+
+        const originalCwd = process.cwd();
+        try {
+            process.chdir(tempDir);
+            await runGenerator(undefined, { silent: true });
+        } finally {
+            process.chdir(originalCwd);
+        }
+
+        const orphanExists = await fs.access(orphanDir).then(() => true).catch(() => false);
+        expect(orphanExists).toBe(false);
+    });
+
+    it("should reset nsDistDir before generating to eliminate zombie files from prior configurations", async () => {
+        const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
+            {
+                namespace: "myNs",
+                source: {
+                    type: "local",
+                    path: path.join(tempDir, "local-moodle"),
+                },
+                webservices: ["core_course_*"],
+                outDir: "./schemas/local",
+            },
+        ];
+
+        vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue(fakeConfigs);
+        vi.mocked(extractWebservice).mockResolvedValue({
+            schemas: [
+                {
+                    name: "core_course_get_courses",
+                    description: "Get courses",
+                    parameters: { kind: "parameters", keys: {} },
+                    returns: { kind: "value", type: "PARAM_INT", primitiveType: "number" },
+                },
+            ] as any,
+            errors: [],
+        });
+
+        const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+        const nsDistDir = path.join(nodeModulesDir, "dist/schemas/myNs");
+        await fs.mkdir(nsDistDir, { recursive: true });
+        // Create a zombie file from an old generation that is not in the new generation
+        await fs.writeFile(path.join(nsDistDir, "zombie_old_service.webservice.d.ts"), "// zombie", "utf-8");
+
+        await fs.writeFile(
+            path.join(nodeModulesDir, "package.json"),
+            JSON.stringify({ name: "@didactika/moodle-client" }),
+            "utf-8"
+        );
+        await fs.writeFile(path.join(nodeModulesDir, "dist/index.d.ts"), "// index\n", "utf-8");
+
+        const originalCwd = process.cwd();
+        try {
+            process.chdir(tempDir);
+            await runGenerator(undefined, { silent: true });
+        } finally {
+            process.chdir(originalCwd);
+        }
+
+        // Zombie file must be gone
+        const zombieExists = await fs
+            .access(path.join(nsDistDir, "zombie_old_service.webservice.d.ts"))
+            .then(() => true)
+            .catch(() => false);
+        expect(zombieExists).toBe(false);
+
+        // New service must exist
+        const courseDir = path.join(nsDistDir, "core/course");
+        const generatedFiles = await fs.readdir(courseDir);
+        expect(generatedFiles.some((f) => f.startsWith("get_courses.webservice"))).toBe(true);
+    });
+
+    it("should bypass cache for namespaces specified in forceNamespaces", async () => {
+        const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+        const nsDistDir = path.join(nodeModulesDir, "dist/schemas/cachedNs");
+        await fs.mkdir(nsDistDir, { recursive: true });
+        await fs.writeFile(path.join(nsDistDir, "index.d.ts"), "// cached", "utf-8");
+        await fs.writeFile(path.join(nsDistDir, "test.webservice.d.ts"), "// cached", "utf-8");
+
+        const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
+            {
+                namespace: "cachedNs",
+                source: {
+                    type: "moodle",
+                    version: "4.4",
+                },
+                webservices: ["core_user_*"],
+            },
+        ];
+
+        vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue(fakeConfigs);
+        vi.spyOn(downloader, "cloneMoodleVersion").mockResolvedValue(path.join(tempDir, "cloned-moodle"));
+        vi.spyOn(downloader, "cleanupMoodleDirectory").mockResolvedValue();
+        vi.mocked(extractWebservice).mockResolvedValue({ schemas: [], errors: [] });
+
+        await fs.writeFile(
+            path.join(nodeModulesDir, "package.json"),
+            JSON.stringify({ name: "@didactika/moodle-client" }),
+            "utf-8"
+        );
+        await fs.writeFile(path.join(nodeModulesDir, "dist/index.d.ts"), "// index\n", "utf-8");
+
+        const originalCwd = process.cwd();
+        try {
+            process.chdir(tempDir);
+            await runGenerator(undefined, { silent: true, forceNamespaces: ["cachedNs"] });
+        } finally {
+            process.chdir(originalCwd);
+        }
+
+        // extractWebservice must have been called because forceNamespaces bypassed cache
+        expect(extractWebservice).toHaveBeenCalled();
+    });
 });
