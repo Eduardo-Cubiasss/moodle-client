@@ -118,7 +118,7 @@ export async function verifyOutDirWritable(targetDir: string): Promise<void> {
     }
 }
 
-function isGeneratorOwnedFile(filename: string): boolean {
+export function isGeneratorOwnedFile(filename: string): boolean {
     return (
         filename.endsWith(".webservice.d.ts") ||
         filename.endsWith(".webservice.ts") ||

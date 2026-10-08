@@ -63,3 +63,14 @@ export async function askQuestion(
         return trimmed;
     }
 }
+
+export function parseYesNoInput(input: string): boolean {
+    const normalized = input.trim().toLowerCase();
+    if (normalized === "y" || normalized === "yes") {
+        return true;
+    }
+    if (normalized === "n" || normalized === "no") {
+        return false;
+    }
+    throw new Error("Please answer with 'y', 'yes', 'n', or 'no'.");
+}
