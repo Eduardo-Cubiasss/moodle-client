@@ -9,7 +9,7 @@ import {
     validateNamespace,
     validateSourceOption,
     validateMoodleVersionInput,
-} from "../../../src/generator/interactive/create-schemas";
+} from "../../../src/generator/ui/create-schemas";
 
 describe("moodle-create-schemas unit tests", () => {
     let tempDir: string;

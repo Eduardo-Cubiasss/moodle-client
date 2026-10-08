@@ -5,7 +5,7 @@ import os from "os";
 import {
     promptDeleteSchemas,
     validateDeleteOption,
-} from "../../../src/generator/interactive/delete-schemas";
+} from "../../../src/generator/ui/delete-schemas";
 
 describe("moodle-delete-schemas unit tests", () => {
     let tempDir: string;

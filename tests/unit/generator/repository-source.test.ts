@@ -7,13 +7,13 @@ import {
     validateRepositoryUrlInput,
     validateBranchInput,
     promptCreateSchemas,
-} from "../../../src/generator/interactive/create-schemas";
+} from "../../../src/generator/ui/create-schemas";
 import {
     syncSubmodulesResilient,
     cloneRepository,
     cleanupRepository,
 } from "../../../src/generator/downloader/git-repository-downloader";
-import { sanitizeGitError } from "../../../src/generator/auth/credential-manager";
+import { sanitizeGitError } from "../../../src/generator/downloader/credential-manager";
 import { loadPackageConfig } from "../../../src/generator/config/config-manager";
 
 describe("Remote Repository & Submodules Suite (Punto 5)", () => {
