@@ -21,6 +21,11 @@ import {
     isRepositorySource,
     isOfficialSource,
 } from "./interfaces/config.interfaces";
+import {
+    createGeneratorError,
+    validateSchemaDeclarations,
+    checkPhpEnvironment,
+} from "./utils/environment-validator";
 
 export interface RunGeneratorOptions {
     silent?: boolean;
@@ -91,6 +96,24 @@ export async function hasExistingSchemas(dir: string): Promise<boolean> {
         return await containsWebserviceFilesRecursively(dir);
     } catch {
         return false;
+    }
+}
+
+/**
+ * Verifies that the specified output directory exists or can be created, and has write permissions.
+ */
+export async function verifyOutDirWritable(targetDir: string): Promise<void> {
+    try {
+        await fs.mkdir(targetDir, { recursive: true });
+        await fs.access(targetDir, fs.constants.W_OK);
+    } catch (err: unknown) {
+        throw createGeneratorError({
+            code: "ERR_OUTPUT_DIRECTORY_NOT_WRITABLE",
+            title: "Output Directory Not Writable",
+            details: `Cannot write to output directory '${targetDir}': Permission denied.`,
+            action: `Grant write permissions to the directory (e.g. chmod u+w '${targetDir}') or specify a different output directory in your configuration.`,
+            cause: err,
+        });
     }
 }
 
@@ -384,6 +407,16 @@ export async function runGenerator(
         }
     }
 
+    // Verify that configured outDir paths exist or are writable
+    if (configDir) {
+        for (const entry of configs) {
+            if (entry.outDir) {
+                const outDirPath = path.resolve(configDir, entry.outDir);
+                await verifyOutDirWritable(outDirPath);
+            }
+        }
+    }
+
     const processSingleSchema = async (entry: MoodleSchemaConfigEntry) => {
         const nsDistDir = path.join(targetSchemasDir, entry.namespace);
         const nsProjectOutDir = entry.outDir
@@ -392,6 +425,7 @@ export async function runGenerator(
 
         // Check if outDir cache already exists and force is not set
         if (nsProjectOutDir && !force) {
+            await validateSchemaDeclarations(nsProjectOutDir, entry.namespace);
             const existsWithSchemas = await hasExistingSchemas(nsProjectOutDir);
             if (existsWithSchemas) {
                 logInfo(
@@ -486,6 +520,7 @@ export async function runGenerator(
         }
 
         try {
+            await checkPhpEnvironment();
             const result = await extractWebservice({
                 moodlePath: targetMoodlePath,
                 services: entry.webservices,

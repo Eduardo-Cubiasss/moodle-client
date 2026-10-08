@@ -22,7 +22,7 @@ export {
     isRepositorySource,
 };
 
-function createGeneratorError(options: ExtendedGeneratorErrorOptions): MoodleGeneratorError {
+export function createGeneratorError(options: ExtendedGeneratorErrorOptions): MoodleGeneratorError {
     return new MoodleGeneratorError(options as unknown as MoodleGeneratorErrorOptions);
 }
 
@@ -238,7 +238,7 @@ export async function loadPackageConfig(
                 code: "ERR_CONFIG_INVALID_ENTRY",
                 title: "Invalid Configuration Entry",
                 details: `Configuration entry at index ${i} in 'moodle-client' is not an object.`,
-                action: "Ensure all elements in 'moodle-client' are valid configuration objects.",
+                action: "Ensure all elements in 'moodle-client' are valid configuration objects, or run 'npx moodle-delete-schemas' to remove invalid entries.",
             });
         }
 
@@ -248,7 +248,7 @@ export async function loadPackageConfig(
                 code: "ERR_CONFIG_MISSING_NAMESPACE",
                 title: "Missing Configuration Namespace",
                 details: `Configuration entry at index ${i} is missing a 'namespace' property.`,
-                action: "Specify a unique 'namespace' string for each configuration in 'moodle-client'.",
+                action: "Specify a unique 'namespace' string for each configuration in 'moodle-client', or run 'npx moodle-delete-schemas' to clean up.",
             });
         }
 
@@ -257,7 +257,7 @@ export async function loadPackageConfig(
                 code: "ERR_CONFIG_DUPLICATE_NAMESPACE",
                 title: "Duplicate Configuration Namespace",
                 details: `Duplicate configuration namespace '${namespace}' found in 'moodle-client'. Each entry must have a unique namespace.`,
-                action: "Assign a unique namespace to each configuration in 'moodle-client'.",
+                action: `Assign a unique namespace to each configuration in 'moodle-client', or run 'npx moodle-delete-schemas' to remove duplicates.`,
             });
         }
         seenNamespaces.add(namespace);
@@ -267,7 +267,7 @@ export async function loadPackageConfig(
                 code: "ERR_CONFIG_MISSING_SOURCE",
                 title: "Missing Configuration Source",
                 details: `Configuration '${namespace}' is missing a valid 'source' property.`,
-                action: "Define 'source' with type 'local', 'moodle', or 'repository'.",
+                action: `Define 'source' with type 'local', 'moodle', or 'repository', or run 'npx moodle-delete-schemas' to select and recreate it with 'npx moodle-create-schemas'.`,
             });
         }
 
@@ -285,16 +285,17 @@ export async function loadPackageConfig(
                     code: "ERR_CONFIG_MISSING_LOCAL_PATH",
                     title: "Missing Local Path",
                     details: `Configuration '${namespace}' specifies source 'local' but is missing 'path'.`,
-                    action: "Specify the filesystem path to the Moodle codebase in 'source.path'.",
+                    action: `Specify the filesystem path to the Moodle codebase in 'source.path', or run 'npx moodle-delete-schemas' to select and recreate it with 'npx moodle-create-schemas'.`,
                 });
             }
+
 
             if (!outDir) {
                 throw createGeneratorError({
                     code: "ERR_CONFIG_MISSING_OUTDIR_LOCAL",
                     title: "Missing outDir in Local Mode",
                     details: `Missing outDir in Local Mode for configuration '${namespace}'. 'outDir' is required when source type is 'local'.`,
-                    action: `Add "outDir": "./schemas/local" (or your preferred output directory) to configuration '${namespace}'.`,
+                    action: `Add "outDir": "./schemas/local" (or your preferred output directory) to configuration '${namespace}', or run 'npx moodle-delete-schemas' to remove it and 'npx moodle-create-schemas' to recreate it.`,
                 });
             }
 
@@ -318,7 +319,7 @@ export async function loadPackageConfig(
                     code: "ERR_MOODLE_VERSION_UNSUPPORTED",
                     title: "Unsupported Moodle Version",
                     details: `Moodle version '${rawVersion}' is not supported in configuration '${namespace}'. Web services schema generation requires Moodle 2.0 or higher.`,
-                    action: `Set "version" to a supported Moodle version (>= 2.0, e.g. "4.4") in configuration '${namespace}'.`,
+                    action: `Set "version" to a supported Moodle version (>= 2.0, e.g. "4.5") in configuration '${namespace}', or run 'npx moodle-delete-schemas' to remove it and 'npx moodle-create-schemas' to recreate it.`,
                 });
             }
 
@@ -342,7 +343,7 @@ export async function loadPackageConfig(
                     code: "ERR_CONFIG_MISSING_REPOSITORY_URL",
                     title: "Missing Repository URL",
                     details: `Configuration '${namespace}' specifies source 'repository' but is missing 'url'.`,
-                    action: "Specify the repository clone URL in 'source.url' (e.g., 'https://github.com/my-org/moodle.git').",
+                    action: `Specify the repository clone URL in 'source.url' (e.g., 'https://github.com/my-org/moodle.git'), or run 'npx moodle-delete-schemas' to remove it and 'npx moodle-create-schemas' to recreate it.`,
                 });
             }
 
@@ -351,7 +352,7 @@ export async function loadPackageConfig(
                     code: "ERR_CONFIG_MISSING_OUTDIR_REPOSITORY",
                     title: "Missing outDir in Repository Mode",
                     details: `Missing outDir in Repository Mode for configuration '${namespace}'. 'outDir' is required when source type is 'repository'.`,
-                    action: `Add "outDir": "src/schemas" (or your preferred output directory) to configuration '${namespace}'.`,
+                    action: `Add "outDir": "src/schemas" (or your preferred output directory) to configuration '${namespace}', or run 'npx moodle-delete-schemas' to remove it and 'npx moodle-create-schemas' to recreate it.`,
                 });
             }
 
@@ -375,7 +376,7 @@ export async function loadPackageConfig(
                 code: "ERR_CONFIG_INVALID_SOURCE_TYPE",
                 title: "Invalid Source Type",
                 details: `Configuration '${namespace}' has unknown source type '${sourceType}'. Must be 'moodle-official' (or 'moodle'), 'local', or 'repository'.`,
-                action: "Set 'source.type' to 'moodle-official', 'local', or 'repository'.",
+                action: `Set 'source.type' to 'moodle-official', 'local', or 'repository', or run 'npx moodle-delete-schemas' to remove it and 'npx moodle-create-schemas' to recreate it.`,
             });
         }
     }

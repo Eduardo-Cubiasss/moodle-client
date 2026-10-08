@@ -1,5 +1,5 @@
-import { formatError } from "@didactika/moodle-client-schemas";
 import { runGenerator } from "../runner";
+import { formatGeneratorError } from "../utils/environment-validator";
 
 function calculateProgress(
     startTime: number,
@@ -88,7 +88,7 @@ export function reportProgressError(timer: NodeJS.Timeout | null, error: unknown
         clearInterval(timer);
     }
     process.stdout.write("\n\n");
-    console.error(formatError(error));
+    console.error(formatGeneratorError(error));
 }
 
 /**

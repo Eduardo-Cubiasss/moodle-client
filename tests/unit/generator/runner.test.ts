@@ -164,7 +164,11 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
     it("should skip extraction and sync existing schemas when outDir/[name] already contains schemas and force is false", async () => {
         const outDir = path.join(tempDir, "schemas/local/legacy");
         await fs.mkdir(path.join(outDir, "core/course"), { recursive: true });
-        await fs.writeFile(path.join(outDir, "core/course/get_courses.webservice.d.ts"), "// ws", "utf-8");
+        await fs.writeFile(
+            path.join(outDir, "core/course/get_courses.webservice.d.ts"),
+            "export interface CoreCourseGetCourses { id: number; }\n",
+            "utf-8"
+        );
         await fs.writeFile(path.join(outDir, "index.d.ts"), "export const cached = true;\n", "utf-8");
 
         const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
