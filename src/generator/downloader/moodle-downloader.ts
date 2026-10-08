@@ -42,13 +42,22 @@ function isNetworkError(err: unknown): boolean {
 
 function runCommand(command: string): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
-        child_process.exec(command, (error, stdout, stderr) => {
-            if (error) {
-                reject(error);
-                return;
+        child_process.exec(
+            command,
+            {
+                env: {
+                    ...process.env,
+                    GIT_TERMINAL_PROMPT: "0",
+                },
+            },
+            (error, stdout, stderr) => {
+                if (error) {
+                    reject(error);
+                    return;
+                }
+                resolve({ stdout, stderr });
             }
-            resolve({ stdout, stderr });
-        });
+        );
     });
 }
 

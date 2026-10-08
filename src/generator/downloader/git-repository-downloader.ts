@@ -140,6 +140,15 @@ export async function syncSubmodulesResilient(
     }
 }
 
+function createSimpleGit(baseDir?: string): SimpleGit {
+    const git = simpleGit({
+        baseDir,
+        allowEnvironment: ["GIT_TERMINAL_PROMPT"],
+    });
+    git.env("GIT_TERMINAL_PROMPT", "0");
+    return git;
+}
+
 /**
  * Shallow clones a remote repository and resiliently initializes its submodules.
  */
@@ -151,7 +160,7 @@ export async function cloneRepository(
     }
 
     const branch = options.branch || "main";
-    const git = options.gitInstance ?? simpleGit();
+    const git = options.gitInstance ?? createSimpleGit();
 
     const cloneOptions: string[] = [
         "--depth",
@@ -223,7 +232,7 @@ export async function cloneRepository(
         console.log(`[moodle-client] Base repository cloned (${cloneElapsed}s).`);
     }
 
-    const repoGit = options.gitInstance ?? simpleGit(options.targetPath);
+    const repoGit = options.gitInstance ?? createSimpleGit(options.targetPath);
     await syncSubmodulesResilient(repoGit, options.targetPath, options.silent);
 
     return options.targetPath;

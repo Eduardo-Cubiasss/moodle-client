@@ -312,6 +312,27 @@ describe("Remote Repository & Submodules Suite (Punto 5)", () => {
             ).rejects.toThrow(/\[REDACTED\]/);
         });
 
+        it("CLN-05: debe lanzar ERR_REPOSITORY_AUTH_FAILED cuando las credenciales no son validas o terminal prompts estan deshabilitados", async () => {
+            const fakeGit = {
+                clone: vi.fn().mockRejectedValue(
+                    new Error("fatal: could not read Username for 'https://gitlab.com/secret/repo.git': terminal prompts disabled")
+                ),
+            };
+
+            await expect(
+                cloneRepository({
+                    repoUrl: "https://gitlab.com/secret/repo.git",
+                    branch: "main",
+                    targetPath: tempDir,
+                    gitInstance: fakeGit as any,
+                    silent: true,
+                })
+            ).rejects.toMatchObject({
+                code: "ERR_REPOSITORY_AUTH_FAILED",
+                title: "Repository Authentication Failed",
+            });
+        });
+
         it("debe limpiar el directorio del repositorio en cleanupRepository", async () => {
             const testFile = path.join(tempDir, "file.txt");
             await fs.writeFile(testFile, "hello", "utf-8");
