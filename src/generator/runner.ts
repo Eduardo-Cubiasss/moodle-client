@@ -530,12 +530,14 @@ export async function runGenerator(
             });
 
             if (result.errors && result.errors.length > 0) {
-                for (const err of result.errors) {
-                    console.error(
-                        `[moodle-client] [${entry.namespace}] Extraction error: [${err.code}] ${
-                            err.serviceName ? `(${err.serviceName}) ` : ""
-                        }${err.message}`
-                    );
+                if (!options?.silent) {
+                    for (const err of result.errors) {
+                        console.error(
+                            `[moodle-client] [${entry.namespace}] Extraction error: [${err.code}] ${
+                                err.serviceName ? `(${err.serviceName}) ` : ""
+                            }${err.message}`
+                        );
+                    }
                 }
                 if (result.schemas.length === 0 && result.errors[0]) {
                     const firstErr = result.errors[0];
