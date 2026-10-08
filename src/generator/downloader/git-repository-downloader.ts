@@ -141,12 +141,8 @@ export async function syncSubmodulesResilient(
 }
 
 function createSimpleGit(baseDir?: string): SimpleGit {
-    const git = simpleGit({
-        baseDir,
-        allowEnvironment: ["GIT_TERMINAL_PROMPT"],
-    });
-    git.env("GIT_TERMINAL_PROMPT", "0");
-    return git;
+    process.env.GIT_TERMINAL_PROMPT = "0";
+    return simpleGit({ baseDir });
 }
 
 /**
