@@ -494,6 +494,11 @@ export async function promptCreateSchemas(
             );
         }
 
+        // Release stdin readline interface before executing generator
+        if (rl) {
+            rl.close();
+        }
+
         // Finish question flow & generate
         console.log(SEPARATOR);
         console.log(colors.orange("Generating schemas....\n"));

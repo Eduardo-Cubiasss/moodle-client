@@ -12,6 +12,7 @@ import {
     syncSubmodulesResilient,
     cloneRepository,
     cleanupRepository,
+    createSimpleGit,
 } from "../../../src/generator/downloader/git-repository-downloader";
 import { sanitizeGitError } from "../../../src/generator/downloader/credential-manager";
 import { loadPackageConfig } from "../../../src/generator/config/config-manager";
@@ -331,6 +332,16 @@ describe("Remote Repository & Submodules Suite (Punto 5)", () => {
                 code: "ERR_REPOSITORY_AUTH_FAILED",
                 title: "Repository Authentication Failed",
             });
+        });
+
+        it("CLN-06: debe configurar allowEnvironment con GIT_TERMINAL_PROMPT para prevenir cuelgues interactivos", async () => {
+            const git = createSimpleGit(tempDir);
+            expect(process.env.GIT_TERMINAL_PROMPT).toBe("0");
+            expect(git).toBeDefined();
+
+            // Executing a command through the configured git instance succeeds and passes environment guard
+            const version = await git.raw(["--version"]);
+            expect(version).toContain("git version");
         });
 
         it("debe limpiar el directorio del repositorio en cleanupRepository", async () => {
