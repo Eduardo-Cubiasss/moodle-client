@@ -351,11 +351,12 @@ Launches an interactive console wizard that guides you through registering a new
 - Prompts for namespace name, source type (**Official GitHub**, **Local Directory**, or **Remote Git Repository**), webservice pattern filter, and output directory (`outDir`).
 - Validates parameters (enforcing required `outDir` for local directories and remote repositories).
 - Appends the configuration entry into the `"moodle-client"` array in your `package.json` and immediately runs generation.
+- **Transactional Rollback**: If initial schema generation fails (due to invalid Git credentials, inaccessible repository, or network issues), automatically restores `package.json` to its previous state and removes any partial/empty directories created in `outDir` and `dist/schemas`.
 
 #### `npx moodle-generate-schemas`
 Reads all configured namespaces from `package.json` and compiles them into TypeScript declaration files (`.d.ts`):
 - **Smart cache check**: If schemas already exist in your project's `outDir`, re-downloading is skipped and types synchronize in milliseconds (~0.2s).
-- **Extraction pipeline**: Downloads official releases, shallow-clones remote Git repositories (with concurrent submodule synchronization), or scans local directories, extracting PHP method signatures from `db/services.php` and `classes/external/*.php`.
+- **Extraction & Concurrency**: Downloads official releases, shallow-clones remote Git repositories (with concurrent submodule synchronization, `p-limit(4)`), or scans local directories. Processes up to 2 schemas concurrently (`p-limit(2)`) with up to 8 parallel worker processes per schema (`concurrency: 8`).
 - **Declaration merging**: Generates a master barrel (`index.d.ts`) that extends `MoodleClient` with each configured namespace so your editor provides instant autocompletion.
 - **Flags**:
   - `--force` (`-f`): Bypasses cached schemas, purges old files, and forces a clean clone and re-extraction.
@@ -366,6 +367,7 @@ Interactively removes a schema namespace without breaking custom code:
 - Presents a numbered menu of configured namespaces.
 - Removes the chosen namespace entry from `package.json`.
 - Selectively deletes generated `.webservice.d.ts` schema files and barrels from `outDir` and the package, while safely preserving any custom files in that directory.
+- Prunes empty directories bottom-up and supports removing entries even if `outDir` was already cleaned up.
 
 > For a complete walkthrough of configuring custom web services, see the [Web Services Guide](docs/webservices-guide.md).
 

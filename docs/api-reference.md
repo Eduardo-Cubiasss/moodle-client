@@ -355,12 +355,13 @@ Interactive wizard that configures a new schema source:
 - Prompts for `namespace`, source type (**Official**, **Local**, or **Repository**), function patterns, and mandatory `outDir`.
 - Appends the configuration entry into `"moodle-client"` in `package.json`.
 - Runs generation immediately to create `.webservice.d.ts` files and update module augmentation.
+- **Transactional Rollback**: If initial generation fails (e.g. invalid credentials or network error), automatically rolls back `package.json` to its previous state and cleans up any empty/partial directories.
 
 ### `npx moodle-generate-schemas`
 
 Compiles TypeScript declarations for all entries in `package.json`:
 - **Smart cache**: If schemas exist in `outDir`, synchronizes in milliseconds (~0.2s) without re-downloading.
-- **Extraction**: Downloads official releases, shallow-clones Git repositories (with concurrent submodule synchronization), or reads local folders, extracting signatures from `db/services.php` and `classes/external/*.php`.
+- **Extraction & Concurrency**: Downloads official releases, shallow-clones Git repositories (with concurrent submodule synchronization, `p-limit(4)`), or reads local folders. Processes up to 2 schemas concurrently (`p-limit(2)`) and extracts signatures with 8 parallel worker processes per schema (`concurrency: 8`).
 - **Barrels**: Produces `index.d.ts` with module augmentation to expose each namespace on `MoodleClient`.
 - **CLI Flags**:
   - `--force` (`-f`): Bypasses cache, purges existing files, and executes a clean download/clone and extraction.
@@ -372,6 +373,7 @@ Interactive wizard to remove a schema namespace:
 - Displays a numbered list of configured namespaces.
 - Removes the chosen entry from `package.json`.
 - Selectively deletes generated `.webservice.d.ts` files and barrels from `outDir` and the package, while safely preserving custom user code.
+- Prunes empty output directories and supports removing entries even if `outDir` was already cleaned up.
 
 ---
 

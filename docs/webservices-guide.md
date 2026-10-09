@@ -71,6 +71,7 @@ npx moodle-create-schemas
   * `[3] Remote Repository (Configurable):` Remote Git repository URL (HTTPS/SSH) and branch.
 * **Webservices Pattern:** Filter function names (e.g. `*` for all, or `core_user_*`).
 * **Output Directory (`outDir`):** Mandatory for `Local` and `Remote Repository` (e.g. `src/schemas`).
+* **Transactional Rollback:** If initial schema generation fails (due to invalid Git credentials, inaccessible repository, or network timeout), the wizard automatically restores `package.json` to its previous state and cleans up any partial directories created in `outDir` and `dist/schemas`.
 
 ### 2.2 Generate and Synchronize Schemas (`moodle-generate-schemas`)
 
@@ -81,6 +82,7 @@ npx moodle-generate-schemas
 ```
 
 * **Smart Cache Skip:** When schemas already exist in `outDir`, generation is skipped and synchronized in ~0.2 seconds.
+* **Concurrency and Parallelism:** Processes up to 2 schemas concurrently (`p-limit(2)`) and extracts up to 8 PHP webservices in parallel per schema (`concurrency: 8`), with concurrent Git submodule synchronization (`p-limit(4)`).
 * **Force Regeneration (`--force`):**
   ```bash
   npx moodle-generate-schemas --force
@@ -96,7 +98,9 @@ npx moodle-delete-schemas
 ```
 
 * Select the namespace from a numbered menu.
-* Removes the configuration entry from `package.json` and deletes generated schema files, preserving custom user files.
+* Removes the configuration entry from `package.json` and deletes generated schema files.
+* Strictly preserves user files in `outDir`, prompting for confirmation if non-generator files exist.
+* Supports clean removal even if `outDir` was already deleted or is empty.
 
 ---
 
@@ -229,3 +233,45 @@ try {
   }
 }
 ```
+
+---
+
+## 5. CLI Diagnostics & Error Troubleshooting
+
+CLI tools provide a structured, emoji-free error reporting layout:
+
+```text
+[moodle-client] ERROR: <Title> (<CODE>)
+Details: <Clear description of failure cause>
+Action:  <Exact, actionable remediation command>
+```
+
+### 5.1 Remediation Philosophy
+
+- **Corrupted schemas (`ERR_SCHEMA_MALFORMED`)**: The only scenario where schema removal is recommended (`npx moodle-delete-schemas` followed by `npx moodle-create-schemas`). Triggered when `.webservice.d.ts` files on disk are 0 bytes or contain no `export` statements.
+- **Git credentials (`ERR_REPOSITORY_AUTH_FAILED`)**: Never deletes configuration. Advises configuring the persistent Git credential store:
+  ```bash
+  git config --global credential.helper store
+  ```
+  and checking `~/.git-credentials`. Terminal prompts are disabled (`GIT_TERMINAL_PROMPT=0`) to prevent console hangs or progress bar corruption.
+- **Inaccessible repositories (`ERR_REPOSITORY_NOT_FOUND`)**: Displays the exact inaccessible URL and instructs checking `source.url` in `package.json` or private repository permissions.
+- **Filesystem permissions (`ERR_MOODLE_PATH_PERMISSION_DENIED`, `ERR_OUTPUT_DIRECTORY_NOT_WRITABLE`)**: Recommends exact permission commands (`chmod u+rx` or `chmod u+w`) without deleting registered configurations.
+- **Unexpected errors (`ERR_UNKNOWN`)**: Directs users to report issues at [GitHub Issues](https://github.com/didactika/moodle-client/issues), noting that reports help maintainers and the community improve the library.
+
+### 5.2 Transactional Rollback on Creation (`moodle-create-schemas`)
+
+During interactive schema registration:
+1. Configurations are tentatively staged in `package.json`.
+2. Generator execution runs immediately.
+3. If generation fails for any reason (network timeout, invalid credentials, missing path), transactional rollback triggers:
+   - Restores `package.json` to its previous state.
+   - Deletes any partial directories created in `outDir/<namespace>` and `dist/schemas/<namespace>`.
+   - Prunes the parent `outDir` directory if left empty.
+
+### 5.3 Concurrency Architecture
+
+- **Parallel schemas**: Up to 2 schemas processed simultaneously (`p-limit(2)`).
+- **Parallel PHP introspection**: Up to 8 processes per schema (`concurrency: 8`), configurable in `package.json`.
+- **Parallel Git submodules**: Up to 4 concurrent downloads (`p-limit(4)`).
+- **Master barrel**: Aggregated generation step runs at completion to merge all declarations into `index.d.ts`.
+
