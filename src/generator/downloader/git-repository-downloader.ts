@@ -140,10 +140,26 @@ export async function syncSubmodulesResilient(
     }
 }
 
-function createSimpleGit(baseDir?: string): SimpleGit {
+export function createSimpleGit(baseDir?: string): SimpleGit {
     process.env.GIT_TERMINAL_PROMPT = "0";
-    return simpleGit({ baseDir });
+    const ambientGitKeys = Object.keys(process.env).filter((k) =>
+        k.toUpperCase().startsWith("GIT_")
+    );
+    const allowEnvironment = Array.from(
+        new Set([
+            "GIT_TERMINAL_PROMPT",
+            "GIT_SSH_COMMAND",
+            "GIT_ASKPASS",
+            "GIT_CONFIG_PARAMETERS",
+            ...ambientGitKeys,
+        ])
+    );
+    return simpleGit({
+        baseDir,
+        allowEnvironment,
+    });
 }
+
 
 /**
  * Shallow clones a remote repository and resiliently initializes its submodules.
