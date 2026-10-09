@@ -13,7 +13,7 @@ export class InvalidParameter extends Error {
     constructor(debugInfo?: string) {
         super();
         this.name = "invalidParameter";
-        this.message = "Invalid parameter value";
+        this.message = debugInfo ? `Invalid parameter value: ${debugInfo}` : "Invalid parameter value";
         this.status = 400;
         if (debugInfo) this.debugInfo = debugInfo;
     }

@@ -14,7 +14,7 @@ export class BadRequestError extends Error {
     constructor(debugInfo?: string) {
         super();
         this.name = "badRequest";
-        this.message = "Bad request";
+        this.message = debugInfo ? `Bad request: ${debugInfo}` : "Bad request";
         this.status = 400;
         if (debugInfo) this.debugInfo = debugInfo;
     }

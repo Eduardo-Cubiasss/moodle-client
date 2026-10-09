@@ -17,7 +17,7 @@ export class MoodleException extends Error {
     constructor(status: number, message: string, debugInfo?: string) {
         super();
         this.name = "moodleException";
-        this.message = message;
+        this.message = debugInfo ? `${message} | Debug: ${debugInfo}` : message;
         this.status = status;
         if (debugInfo) this.debugInfo = debugInfo;
     }
