@@ -11,6 +11,7 @@ import {
     isMoodleVersionSupported,
 } from "../config/config-manager";
 import { runGeneratorWithProgress } from "./progress-bar";
+import { findMoodleClientPackageDir } from "../runner";
 import {
     colors,
     SEPARATOR,
@@ -378,15 +379,18 @@ export async function promptCreateSchemas(
         ? path.resolve(options.pkgPath)
         : path.resolve(process.cwd(), "package.json");
 
+    const pkgExistsInitially = existsSync(resolvedPkgPath);
+    let originalPkgRaw: string | undefined;
+
     let parsedPkg: PackageJsonWithMoodleClient = {
         name: "moodle-app",
         version: "1.0.0",
     };
 
-    if (existsSync(resolvedPkgPath)) {
+    if (pkgExistsInitially) {
         try {
-            const content = await fs.readFile(resolvedPkgPath, "utf-8");
-            parsedPkg = JSON.parse(content);
+            originalPkgRaw = await fs.readFile(resolvedPkgPath, "utf-8");
+            parsedPkg = JSON.parse(originalPkgRaw);
         } catch {
             // Keep default structure if file cannot be parsed
         }
@@ -503,7 +507,7 @@ export async function promptCreateSchemas(
         console.log(SEPARATOR);
         console.log(colors.orange("Generating schemas....\n"));
 
-        // Persist to package.json
+        // Persist to package.json tentatively for generator execution
         if (!Array.isArray(parsedPkg["moodle-client"])) {
             parsedPkg["moodle-client"] = sessionCreatedEntries;
         } else {
@@ -516,13 +520,47 @@ export async function promptCreateSchemas(
             "utf-8"
         );
 
-        // Run schema generation
-        if (options?.generatorRunner) {
-            await options.generatorRunner(resolvedPkgPath);
-        } else {
-            await runGeneratorWithProgress(resolvedPkgPath, {
-                forceNamespaces: sessionCreatedEntries.map((e) => e.namespace),
-            });
+        try {
+            // Run schema generation
+            if (options?.generatorRunner) {
+                await options.generatorRunner(resolvedPkgPath);
+            } else {
+                await runGeneratorWithProgress(resolvedPkgPath, {
+                    forceNamespaces: sessionCreatedEntries.map((e) => e.namespace),
+                });
+            }
+        } catch (genErr) {
+            // Rollback package.json if initial schema creation failed
+            if (pkgExistsInitially && originalPkgRaw !== undefined) {
+                await fs.writeFile(resolvedPkgPath, originalPkgRaw, "utf-8");
+            } else if (!pkgExistsInitially) {
+                await fs.rm(resolvedPkgPath, { force: true });
+            }
+
+            // Clean up any directories created for sessionCreatedEntries
+            const configDir = path.dirname(resolvedPkgPath);
+            const pkgDir = findMoodleClientPackageDir();
+            for (const entry of sessionCreatedEntries) {
+                if (entry.outDir) {
+                    const nsOutDir = path.resolve(configDir, entry.outDir, entry.namespace);
+                    await fs.rm(nsOutDir, { recursive: true, force: true });
+                    const parentOutDir = path.resolve(configDir, entry.outDir);
+                    try {
+                        const items = await fs.readdir(parentOutDir);
+                        if (items.length === 0) {
+                            await fs.rmdir(parentOutDir);
+                        }
+                    } catch {
+                        // Ignore if directory doesn't exist
+                    }
+                }
+                if (pkgDir) {
+                    const distNsDir = path.join(pkgDir, "dist/schemas", entry.namespace);
+                    await fs.rm(distNsDir, { recursive: true, force: true });
+                }
+            }
+
+            throw genErr;
         }
 
         return sessionCreatedEntries;

@@ -294,5 +294,52 @@ describe("moodle-create-schemas unit tests", () => {
             expect(updatedPkg["moodle-client"][0].namespace).toBe("existingSchema");
             expect(updatedPkg["moodle-client"][1].namespace).toBe("newSchema");
         });
+
+        it("should rollback package.json and clean up created directories if generation fails", async () => {
+            const initialPkg = {
+                name: "my-app",
+                "moodle-client": [
+                    {
+                        namespace: "stableSchema",
+                        source: { type: "moodle", version: "4.4" },
+                        webservices: ["*"],
+                    },
+                ],
+            };
+            await fs.writeFile(pkgJsonPath, JSON.stringify(initialPkg, null, 2), "utf-8");
+
+            const createdOutDir = path.join(tempDir, "failed-out-dir");
+            const mockFailingRunner = vi.fn().mockImplementation(async () => {
+                await fs.mkdir(path.join(createdOutDir, "failingSchema"), { recursive: true });
+                throw new Error("Simulated remote clone authentication failure");
+            });
+
+            const answers = [
+                "failingSchema",
+                "3",
+                "https://gitlab.example.com/repo.git",
+                "main",
+                "*",
+                "failed-out-dir",
+                "n",
+            ];
+
+            await expect(
+                promptCreateSchemas({
+                    pkgPath: pkgJsonPath,
+                    mockAnswers: answers,
+                    generatorRunner: mockFailingRunner,
+                })
+            ).rejects.toThrow("Simulated remote clone authentication failure");
+
+            // Verify package.json was restored to initial state without failingSchema
+            const restoredPkg = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"));
+            expect(restoredPkg["moodle-client"]).toHaveLength(1);
+            expect(restoredPkg["moodle-client"][0].namespace).toBe("stableSchema");
+
+            // Verify failed directory was cleaned up
+            const exists = await fs.access(path.join(createdOutDir, "failingSchema")).then(() => true).catch(() => false);
+            expect(exists).toBe(false);
+        });
     });
 });
