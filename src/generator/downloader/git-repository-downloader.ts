@@ -207,7 +207,7 @@ export async function cloneRepository(
                 code: "ERR_REPOSITORY_NOT_FOUND",
                 title: "Remote Repository Not Found",
                 details: `The remote repository at '${options.repoUrl}' could not be found or is inaccessible (404 Not Found).`,
-                action: `Verify the repository URL. Run 'npx moodle-delete-schemas' to select and remove the corrupt schema, then run 'npx moodle-create-schemas' to reconfigure.`,
+                action: `Check and correct 'source.url' ('${options.repoUrl}') in package.json, or verify your repository access permissions if it is a private repository.`,
                 cause: err,
             });
         }
@@ -219,7 +219,7 @@ export async function cloneRepository(
                 code: "ERR_REPOSITORY_AUTH_FAILED",
                 title: "Repository Authentication Failed",
                 details: `Authentication failed for repository '${options.repoUrl}'. The provided credentials or Personal Access Token are invalid (HTTP 401/403).`,
-                action: `Verify your Personal Access Token or credentials. Run 'npx moodle-delete-schemas' to select and remove the corrupt schema, then run 'npx moodle-create-schemas' to reconfigure.`,
+                action: `Configure your Git credentials (e.g., run 'git config --global credential.helper store' and store your username and Personal Access Token, or verify ~/.git-credentials), then re-run 'npm run moodle:generate-schemas'.`,
                 cause: err,
             });
         }

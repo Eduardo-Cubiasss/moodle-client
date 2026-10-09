@@ -579,7 +579,7 @@ export async function runGenerator(
                                     code: "ERR_MOODLE_PATH_PERMISSION_DENIED",
                                     title: "Moodle Path Permission Denied",
                                     details: `Permission denied when accessing Moodle codebase at '${targetMoodlePath}'. The directory cannot be read.`,
-                                    action: `Grant read and execute permissions to the directory (e.g., chmod u+rx '${targetMoodlePath}'), or run 'npx moodle-delete-schemas' to remove the corrupted schema and 'npx moodle-create-schemas' to recreate it.`,
+                                    action: `Grant read and execute permissions to the directory (e.g., chmod u+rx '${targetMoodlePath}') and try again.`,
                                     cause: permErr,
                                 });
                             }

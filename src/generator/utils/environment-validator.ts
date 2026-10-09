@@ -164,7 +164,7 @@ export async function verifyLocalMoodlePath(moodlePath: string, namespace?: stri
                 code: "ERR_MOODLE_PATH_PERMISSION_DENIED",
                 title: "Moodle Path Permission Denied",
                 details: `Permission denied when accessing Moodle codebase at '${moodlePath}'. The directory cannot be read.`,
-                action: `Grant read and execute permissions to the directory (e.g., chmod u+rx '${moodlePath}'), or run 'npx moodle-delete-schemas' to remove the corrupted schema and 'npx moodle-create-schemas' to recreate it.`,
+                action: `Grant read and execute permissions to the directory (e.g., chmod u+rx '${moodlePath}') and try again.`,
                 cause: err,
             });
         }
@@ -181,7 +181,7 @@ export async function verifyLocalMoodlePath(moodlePath: string, namespace?: stri
                 code: "ERR_MOODLE_PATH_PERMISSION_DENIED",
                 title: "Moodle Path Permission Denied",
                 details: `Permission denied when accessing Moodle codebase at '${moodlePath}'. The directory cannot be read.`,
-                action: `Grant read and execute permissions to the directory (e.g., chmod u+rx '${moodlePath}'), or run 'npx moodle-delete-schemas' to remove the corrupted schema and 'npx moodle-create-schemas' to recreate it.`,
+                action: `Grant read and execute permissions to the directory (e.g., chmod u+rx '${moodlePath}') and try again.`,
                 cause: err,
             });
         }
@@ -197,7 +197,7 @@ export async function verifyLocalMoodlePath(moodlePath: string, namespace?: stri
                 code: "ERR_MOODLE_PATH_PERMISSION_DENIED",
                 title: "Moodle Path Permission Denied",
                 details: `Permission denied when accessing 'version.php' in Moodle codebase at '${moodlePath}'. The file cannot be read.`,
-                action: `Grant read and execute permissions to the directory and its files (e.g., chmod u+rx '${moodlePath}'), or run 'npx moodle-delete-schemas' to remove the corrupted schema and 'npx moodle-create-schemas' to recreate it.`,
+                action: `Grant read and execute permissions to the directory and its files (e.g., chmod u+rx '${moodlePath}') and try again.`,
                 cause: err,
             });
         }
@@ -233,12 +233,14 @@ export function formatGeneratorError(error: unknown, useColors = true): string {
     }
 
     const message = error instanceof Error ? error.message : String(error);
+    const actionText =
+        "Please report this unexpected issue at https://github.com/didactika/moodle-client/issues. Reporting errors helps the community and maintainers improve the library.";
     if (useColors) {
         return (
             `${colors.red("[moodle-client] ERROR:")} ${colors.bold("Operation Failed")} ${colors.dim("(ERR_UNKNOWN)")}\n` +
             `${colors.bold("Details:")} ${message}\n` +
-            `${colors.orange("Action:")}  Verify your configuration and system environment.`
+            `${colors.orange("Action:")}  ${actionText}`
         );
     }
-    return `[moodle-client] ERROR: Operation Failed (ERR_UNKNOWN)\nDetails: ${message}\nAction:  Verify your configuration and system environment.`;
+    return `[moodle-client] ERROR: Operation Failed (ERR_UNKNOWN)\nDetails: ${message}\nAction:  ${actionText}`;
 }

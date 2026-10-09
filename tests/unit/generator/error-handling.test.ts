@@ -349,8 +349,8 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
                 expect(genErr.code).toBe("ERR_REPOSITORY_NOT_FOUND");
                 expect(genErr.title).toBe("Remote Repository Not Found");
                 expect(genErr.details).toContain("404 Not Found");
-                expect(genErr.action).toContain("npx moodle-delete-schemas");
-                expect(genErr.action).toContain("npx moodle-create-schemas");
+                expect(genErr.action).toContain("package.json");
+                expect(genErr.action).toContain("source.url");
             }
         });
     });
@@ -376,8 +376,8 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
                 expect(genErr.code).toBe("ERR_REPOSITORY_AUTH_FAILED");
                 expect(genErr.title).toBe("Repository Authentication Failed");
                 expect(genErr.details).toContain("HTTP 401/403");
-                expect(genErr.action).toContain("npx moodle-delete-schemas");
-                expect(genErr.action).toContain("npx moodle-create-schemas");
+                expect(genErr.action).toContain("credential.helper store");
+                expect(genErr.action).toContain("Personal Access Token");
             }
         });
     });
@@ -422,8 +422,7 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
                 expect(genErr.title).toBe("Moodle Path Permission Denied");
                 expect(genErr.details).toContain("Permission denied when accessing Moodle codebase");
                 expect(genErr.action).toContain("chmod u+rx");
-                expect(genErr.action).toContain("npx moodle-delete-schemas");
-                expect(genErr.action).toContain("npx moodle-create-schemas");
+                expect(genErr.action).not.toContain("npx moodle-delete-schemas");
             } finally {
                 await fs.chmod(moodleDir, 0o755);
             }
@@ -488,7 +487,8 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
             const plain = formatGeneratorError(genericErr, false);
             expect(plain).toContain("[moodle-client] ERROR: Operation Failed (ERR_UNKNOWN)");
             expect(plain).toContain("Unexpected disk failure");
-            expect(plain).toContain("Verify your configuration and system environment.");
+            expect(plain).toContain("https://github.com/didactika/moodle-client/issues");
+            expect(plain).toContain("Reporting errors helps the community");
         });
     });
 });
