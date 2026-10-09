@@ -13,7 +13,7 @@ export class InvalidRecord extends Error {
     constructor(debugInfo?: string) {
         super();
         this.name = "invalidRecord";
-        this.message = "No record of that function found in moodle database";
+        this.message = debugInfo ? `No record of that function found in moodle database: ${debugInfo}` : "No record of that function found in moodle database";
         this.status = 404;
         if (debugInfo) this.debugInfo = debugInfo;
     }

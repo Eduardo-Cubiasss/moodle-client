@@ -85,7 +85,7 @@ export class MoodleResponse<T = unknown> implements IMoodleResponse<T> {
                 default:
                     throw body.exception === "moodle_exception"
                         ? new MoodleException(this.status, body.message ?? "", body.debuginfo)
-                        : new BadRequestError();
+                        : new BadRequestError(body.debuginfo);
             }
         }
 
