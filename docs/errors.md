@@ -98,7 +98,7 @@ guess at which empty answers were meant to be failures.
 
 ## Schema Generation and CLI Errors
 
-When configuring, downloading, or generating schemas using the CLI commands (`moodle-create-schemas`, `moodle-generate-schemas`, `moodle-delete-schemas`), errors are captured and presented in a structured format:
+When configuring, downloading, or generating schemas using the CLI commands (`moodle-create-schemas`, `moodle-update-schemas`, `moodle-generate-schemas`, `moodle-delete-schemas`), errors are captured and presented in a structured format:
 
 ```text
 [moodle-client] ERROR: <Title> (<CODE>)
@@ -117,6 +117,10 @@ The CLI error architecture distinguishes between corrupt schema declarations and
    - **Permissions (`ERR_MOODLE_PATH_PERMISSION_DENIED`, `ERR_OUTPUT_DIRECTORY_NOT_WRITABLE`)**: Instructs setting filesystem permissions (e.g. `chmod u+rx` or `chmod u+w`).
    - **Missing Binaries (`ERR_GIT_NOT_FOUND`, `ERR_PHP_NOT_FOUND`, `ERR_PHP_VERSION_UNSUPPORTED`)**: Instructs installing or updating required executables in the system PATH.
 3. **Unexpected Issues (`ERR_UNKNOWN`)**: Prompts the user to report the issue at `https://github.com/didactika/moodle-client/issues`, noting that reporting helps maintainers and the community improve the library.
+
+### Rollback on Update (`moodle-update-schemas --sync`)
+
+If synchronizing an updated namespace fails, its previously generated files are restored, so the previous schemas keep working. The configuration you saved is kept and the command fails with `ERR_SYNC_FAILED`; fix the cause and run `npx moodle-generate-schemas --namespace <name>`.
 
 ### Transactional Rollback on Creation (`moodle-create-schemas`)
 
@@ -145,12 +149,19 @@ If initial schema generation fails during the interactive wizard (e.g. invalid c
 | `ERR_CONFIG_INVALID_ENTRY` | Invalid Configuration Entry | Config | Entry in `moodle-client` array is not an object. | Ensure all elements in `moodle-client` are valid configuration objects. |
 | `ERR_CONFIG_MISSING_NAMESPACE` | Missing Configuration Namespace | Config | Entry is missing mandatory `namespace` property. | Specify a unique `namespace` string for each configuration. |
 | `ERR_CONFIG_DUPLICATE_NAMESPACE` | Duplicate Configuration Namespace | Config | Multiple entries share the same `namespace`. | Assign a unique `namespace` to each configuration entry. |
-| `ERR_CONFIG_MISSING_SOURCE` | Missing Configuration Source | Config | Entry is missing `source` object. | Define `source` with type `local`, `moodle`, or `repository`. |
+| `ERR_CONFIG_MISSING_SOURCE` | Missing Configuration Source | Config | Entry is missing `source` object. | Define `source` with type `moodle-official`, `moodle-repository` or `moodle-local`. |
+| `ERR_CONFIG_RESERVED_NAMESPACE` | Reserved Namespace | Config | `package.json` declares `webservice`, the namespace bundled with the package. Every generation fails until it is removed. | Run `npx moodle-delete-schemas --namespace webservice` (removes only the entry; the bundled schemas stay). |
+| `ERR_CONFIG_INVALID_NAMESPACE` | Invalid Configuration Namespace | Config | `namespace` is not a valid identifier (e.g. `moodle5.0`, `local-dev`). | Rename it to letters, digits, `_` or `$`, not starting with a digit (e.g. `moodle50`). |
 | `ERR_CONFIG_MISSING_LOCAL_PATH` | Missing Local Path | Config | Local source is missing mandatory `source.path`. | Specify filesystem path to Moodle codebase in `source.path`. |
 | `ERR_CONFIG_MISSING_OUTDIR_LOCAL` | Missing outDir in Local Mode | Config | Local source is missing required `outDir`. | Add `"outDir": "./schemas/local"` to the namespace configuration. |
 | `ERR_CONFIG_MISSING_REPOSITORY_URL` | Missing Repository URL | Config | Repository source is missing `source.url`. | Specify Git clone URL in `source.url`. |
 | `ERR_CONFIG_MISSING_OUTDIR_REPOSITORY` | Missing outDir in Repository Mode | Config | Repository source is missing required `outDir`. | Add `"outDir": "src/schemas"` to the namespace configuration. |
-| `ERR_CONFIG_INVALID_SOURCE_TYPE` | Invalid Source Type | Config | Unknown `source.type` value. | Set `source.type` to `moodle-official`, `local`, or `repository`. |
+| `ERR_CONFIG_INVALID_SOURCE_TYPE` | Invalid Source Type | Config | `source.type` is not `moodle-official`, `moodle-repository` or `moodle-local`; short names from pre-release builds (`moodle`, `local`, `repository`…) included. | The message names the replacement; run `npx moodle-update-schemas --namespace <name> --sync` to migrate. |
+| `ERR_CLI_UNKNOWN_OPTION` | Unknown Option | CLI | The command does not accept an option (often a typo). | Run the command with `--help`. |
+| `ERR_CLI_MISSING_OPTION` | Missing Required Option | CLI | A one-line command lacks a required option or a value (e.g. `--source.path` for `moodle-local`). | Add the option named in the message. |
+| `ERR_CLI_INVALID_OPTION` | Invalid Option Value | CLI | An option value is invalid, or does not apply to the source type. | Fix the value named in the message. |
+| `ERR_NAMESPACE_NOT_FOUND` | Namespace Not Found | CLI | `--namespace` names a namespace that is not configured. | Use one of the configured namespaces listed in the message. |
+| `ERR_SYNC_FAILED` | Schema Synchronization Failed | Update | `moodle-update-schemas --sync` saved the configuration but regeneration failed; previous schemas were restored. | Fix the cause and run `npx moodle-generate-schemas --namespace <name>`. |
 | `ERR_MOODLE_VERSION_UNSUPPORTED` | Unsupported Moodle Version | Config | Moodle version is lower than minimum 2.0. | Set `source.version` to a supported Moodle release (>= 2.0, e.g. "4.5"). |
 | `ERR_MOODLE_PATH_NOT_FOUND` | Moodle Path Not Found | Config / Path | Configured `moodlePath` or `source.path` does not exist on disk. | Verify directory exists on disk. |
 | `ERR_MOODLE_PATH_NOT_ROOT` | Invalid Moodle Root Directory | Config / Path | Directory exists but does not contain `version.php`. | Set `source.path` directly to the Moodle root directory containing `version.php`. |

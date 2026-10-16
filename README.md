@@ -341,35 +341,31 @@ Detailed explanation of error handling can be found in [docs/errors.md](docs/err
 > [!NOTE]
 > Moodle 4.5 web services are already **bundled out of the box** in the `webservice` namespace (`moodle.webservice.*`).
 > You **do not** need to generate or configure anything to call standard Moodle web services. You only need the CLI tools if you want custom namespaces, schemas for other Moodle versions (e.g. 4.4, 5.0), local plugin directories, or remote Git repositories.
+>
+> `webservice` is part of the library, not of your configuration: it never appears in `package.json`, and it cannot be updated, regenerated or deleted. The name is reserved; an entry using it in `package.json` makes generation fail until it is removed.
 
-### 1. Interactive CLI Commands
+### 1. CLI Commands
 
-When you need to work with custom Moodle versions, institutional forks, or proprietary plugins, three dedicated CLI tools manage the entire schema lifecycle:
+Four commands manage the schema namespaces. `create`, `update` and `delete` start a wizard when run without options, or run in one line, without prompts, when you pass the values:
 
-#### `npx moodle-create-schemas`
-Launches an interactive console wizard that guides you through registering a new schema source:
-- Prompts for namespace name, source type (**Official GitHub**, **Local Directory**, or **Remote Git Repository**), webservice pattern filter, and output directory (`outDir`).
-- Validates parameters (enforcing required `outDir` for local directories and remote repositories).
-- Appends the configuration entry into the `"moodle-client"` array in your `package.json` and immediately runs generation.
-- **Transactional Rollback**: If initial schema generation fails (due to invalid Git credentials, inaccessible repository, or network issues), automatically restores `package.json` to its previous state and removes any partial/empty directories created in `outDir` and `dist/schemas`.
+| Command | What it does |
+|---|---|
+| `npx moodle-create-schemas` | Adds a namespace to `package.json` and generates it. Rolls back `package.json` if generation fails. |
+| `npx moodle-update-schemas` | Changes a namespace and saves it; then synchronizes (regenerates) only that namespace when you confirm or pass `--sync`, which is recommended. Restores the previous schemas if that fails. |
+| `npx moodle-delete-schemas` | Removes a namespace and its generated files, keeping files you wrote. |
+| `npx moodle-generate-schemas` | Generates every namespace; `--namespace <name>` regenerates just one, `--force` all of them. |
 
-#### `npx moodle-generate-schemas`
-Reads all configured namespaces from `package.json` and compiles them into TypeScript declaration files (`.d.ts`):
-- **Smart cache check**: If schemas already exist in your project's `outDir`, re-downloading is skipped and types synchronize in milliseconds (~0.2s).
-- **Extraction & Concurrency**: Downloads official releases, shallow-clones remote Git repositories (with concurrent submodule synchronization, `p-limit(4)`), or scans local directories. Processes up to 2 schemas concurrently (`p-limit(2)`) with up to 8 parallel worker processes per schema (`concurrency: 8`).
-- **Declaration merging**: Generates a master barrel (`index.d.ts`) that extends `MoodleClient` with each configured namespace so your editor provides instant autocompletion.
-- **Flags**:
-  - `--force` (`-f`): Bypasses cached schemas, purges old files, and forces a clean clone and re-extraction.
-  - `--config <path>`: Uses a custom configuration file path instead of `package.json`.
+```bash
+npx moodle-create-schemas --namespace myRepo \
+    --source.type moodle-repository --source.url https://git.example.com/org/moodle.git \
+    --source.branch main --outDir src/moodle
 
-#### `npx moodle-delete-schemas`
-Interactively removes a schema namespace without breaking custom code:
-- Presents a numbered menu of configured namespaces.
-- Removes the chosen namespace entry from `package.json`.
-- Selectively deletes generated `.webservice.d.ts` schema files and barrels from `outDir` and the package, while safely preserving any custom files in that directory.
-- Prunes empty directories bottom-up and supports removing entries even if `outDir` was already cleaned up.
+npx moodle-update-schemas --namespace myRepo --source.branch release-2 --sync
+npx moodle-generate-schemas --namespace myRepo
+npx moodle-delete-schemas --namespace myRepo
+```
 
-> For a complete walkthrough of configuring custom web services, see the [Web Services Guide](docs/webservices-guide.md).
+Every option, both modes, rollback and cleanup rules: [CLI Reference](docs/cli.md). For a walkthrough, see the [Web Services Guide](docs/webservices-guide.md).
 
 ### 2. Configuration in `package.json`
 
@@ -380,21 +376,21 @@ Configurations are declared under the `"moodle-client"` array in your `package.j
   "name": "my-moodle-app",
   "version": "1.0.0",
   "dependencies": {
-    "@didactika/moodle-client": "^2.3.10"
+    "@didactika/moodle-client": "^2.2.0"
   },
   "moodle-client": [
     {
-      "namespace": "webservice",
+      "namespace": "moodle44",
       "source": {
-        "type": "moodle",
-        "version": "4.5"
+        "type": "moodle-official",
+        "version": "4.4"
       },
       "webservices": ["*"]
     },
     {
       "namespace": "customRepo",
       "source": {
-        "type": "repository",
+        "type": "moodle-repository",
         "url": "https://github.com/my-org/moodle.git",
         "branch": "main"
       },
@@ -404,7 +400,7 @@ Configurations are declared under the `"moodle-client"` array in your `package.j
     {
       "namespace": "localDev",
       "source": {
-        "type": "local",
+        "type": "moodle-local",
         "path": "~/moodle"
       },
       "webservices": ["core_*", "local_*"],
@@ -416,14 +412,15 @@ Configurations are declared under the `"moodle-client"` array in your `package.j
 
 #### Configuration Options
 
-- `namespace` (string, required): Unique namespace identifier used on `MoodleClient` (e.g. `moodle.webservice.*`, `moodle.customRepo.*`, `moodle.localDev.*`).
-- `source` (object, required):
-  - **Official release**: `{ "type": "moodle", "version": "4.5" }`
-  - **Remote Git repository**: `{ "type": "repository", "url": "https://github.com/my-org/moodle.git", "branch": "main" }`
-  - **Local instance**: `{ "type": "local", "path": "/path/to/moodle" }`
+- `namespace` (string, required): Unique namespace identifier used on `MoodleClient` (e.g. `moodle.webservice.*`, `moodle.customRepo.*`, `moodle.localDev.*`). Must be a valid identifier: letters, digits, `_` or `$`, not starting with a digit (`moodle50`, not `moodle5.0`).
+- `source` (object, required). `type` is one of exactly three values:
+  - **Official release**: `{ "type": "moodle-official", "version": "4.5" }`
+  - **Remote Git repository**: `{ "type": "moodle-repository", "url": "https://github.com/my-org/moodle.git", "branch": "main" }`
+  - **Local instance**: `{ "type": "moodle-local", "path": "/path/to/moodle" }`
+
+  The short names used by pre-release builds (`moodle`, `official`, `repository`, `remote`, `git`, `local`) are rejected with an error that names the replacement; `npx moodle-update-schemas --namespace <name> --sync` migrates an old entry.
 - `webservices` (string[], required): Service names or wildcard patterns to include (e.g. `["*"]`, `["core_*"]`, `["mod_quiz_*"]`).
-- `outDir` (string): Output directory path in your project. Required when `source.type` is `"local"` or `"repository"`, optional for `"moodle"`. Generated files are organized under `[outDir]/{namespace}/`.
-- `concurrency` (number, optional): Concurrency limit for PHP schema extraction workers (defaults to 8).
+- `outDir` (string): Output directory path in your project. Required when `source.type` is `"moodle-local"` or `"moodle-repository"`, optional for `"moodle-official"`. Generated files are organized under `[outDir]/{namespace}/`.
 
 ### 3. Calling Web Services via Custom Namespaces
 
@@ -438,7 +435,7 @@ const moodle = new MoodleClient({
   token: process.env.MOODLE_TOKEN!,
 });
 
-// 1. Default bundled namespace 'webservice' (pre-installed, zero generator config needed):
+// 1. Bundled namespace 'webservice' (part of the library, never in package.json):
 // Directly invokes official Moodle core functions with full IDE autocomplete and parameter validation.
 const { data: site } = await moodle.webservice.core_webservice_get_site_info();
 
@@ -466,9 +463,15 @@ The generator emits clear, actionable error blocks:
 |---|---|---|
 | `ERR_CONFIG_INVALID_JSON` | Invalid Configuration File | `package.json` contains malformed JSON syntax. Fix syntax errors. |
 | `ERR_CONFIG_DUPLICATE_NAMESPACE` | Duplicate Namespace | Two entries share the same `namespace`. Use unique namespace names. |
-| `ERR_CONFIG_MISSING_OUTDIR_LOCAL` | Missing outDir in Local Mode | When using `source.type: "local"`, `outDir` is required. |
-| `ERR_CONFIG_MISSING_OUTDIR_REPOSITORY` | Missing outDir in Repository Mode | When using `source.type: "repository"`, `outDir` is required. |
-| `ERR_CONFIG_MISSING_REPOSITORY_URL` | Missing Repository URL | When using `source.type: "repository"`, `source.url` is required. |
+| `ERR_CONFIG_MISSING_OUTDIR_LOCAL` | Missing outDir in Local Mode | When using `source.type: "moodle-local"`, `outDir` is required. |
+| `ERR_CONFIG_MISSING_OUTDIR_REPOSITORY` | Missing outDir in Repository Mode | When using `source.type: "moodle-repository"`, `outDir` is required. |
+| `ERR_CONFIG_MISSING_REPOSITORY_URL` | Missing Repository URL | When using `source.type: "moodle-repository"`, `source.url` is required. |
+| `ERR_CONFIG_INVALID_SOURCE_TYPE` | Invalid Source Type | `source.type` is not `moodle-official`, `moodle-repository` or `moodle-local`. The message names the replacement of old values. |
+| `ERR_CONFIG_RESERVED_NAMESPACE` | Reserved Namespace | `package.json` declares `webservice`, the bundled namespace. Remove that entry (`npx moodle-delete-schemas --namespace webservice`); its types stay available. |
+| `ERR_CONFIG_INVALID_NAMESPACE` | Invalid Configuration Namespace | The namespace is not a valid identifier (e.g. `moodle5.0`). Rename it (e.g. `moodle50`). |
+| `ERR_CLI_UNKNOWN_OPTION` / `ERR_CLI_MISSING_OPTION` / `ERR_CLI_INVALID_OPTION` | CLI option errors | A mistyped option, a missing required option, or an invalid value. Run the command with `--help`. |
+| `ERR_NAMESPACE_NOT_FOUND` | Namespace Not Found | `--namespace` names a namespace that is not configured. The message lists the configured ones. |
+| `ERR_SYNC_FAILED` | Schema Synchronization Failed | `moodle-update-schemas` saved the configuration but regeneration failed; the previous schemas were restored. Fix the cause and run `npx moodle-generate-schemas --namespace <name>`. |
 | `ERR_MOODLE_VERSION_UNSUPPORTED` | Unsupported Moodle Version | Configured Moodle version is lower than 2.0. Set `"version"` to a supported version (e.g. `"4.5"`). |
 | `ERR_PHP_NOT_FOUND` | PHP CLI Not Found | `php` binary was not found in system `PATH`. Install PHP 8.0 or higher. |
 | `ERR_MOODLE_PATH_NOT_ROOT` | Invalid Moodle Root Directory | The directory specified in `source.path` has no `version.php`. Point directly to the Moodle installation root. |
@@ -505,6 +508,15 @@ npm install
 npm test
 npm run test:coverage
 ```
+
+To update the bundled `webservice` namespace to another Moodle release, change `BUNDLED_MOODLE_VERSION` in `src/generator/interfaces/config.interfaces.ts`, then run:
+
+```console
+npm run schemas:bundle                            # downloads that release and regenerates src/schemas
+npm run schemas:bundle -- --moodle-path ~/moodle  # or use a local checkout of it
+```
+
+The script lives in `scripts/` and is not published with the package.
 
 ---
 
