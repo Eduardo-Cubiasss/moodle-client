@@ -8,6 +8,8 @@ import { extractWebservice } from "@didactika/moodle-client-schemas";
 import {
     hasExistingSchemas,
     selectiveCleanNamespace,
+    hasNonGeneratorFiles,
+    generateMasterBarrel,
     runGenerator,
 } from "../../../src/generator/runner";
 
@@ -128,8 +130,8 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
             const indexDts = path.join(nsDir, "index.d.ts");
             const indexDmts = path.join(nsDir, "index.d.mts");
             await fs.writeFile(ws1, "// ws", "utf-8");
-            await fs.writeFile(indexDts, "// index", "utf-8");
-            await fs.writeFile(indexDmts, "// index mts", "utf-8");
+            await fs.writeFile(indexDts, "export interface GeneratedMoodleServices {}\n", "utf-8");
+            await fs.writeFile(indexDmts, "export interface GeneratedMoodleServices {}\n", "utf-8");
 
             // User-owned files
             const userReadme = path.join(nsDir, "README.md");
@@ -158,6 +160,45 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
             expect(await fs.access(nsDir).then(() => true).catch(() => false)).toBe(true);
         });
 
+        it("should never delete user index files in subdirectories or hand-written root barrels", async () => {
+            const nsDir = path.join(tempDir, "schemas/user-index-ns");
+            await fs.mkdir(path.join(nsDir, "core/user"), { recursive: true });
+            await fs.mkdir(path.join(nsDir, "mylib"), { recursive: true });
+            await fs.mkdir(path.join(nsDir, "drafts"), { recursive: true });
+
+            const generated = path.join(nsDir, "core/user/get_users.webservice.d.ts");
+            const subIndex = path.join(nsDir, "mylib/index.ts");
+            const subIndexJs = path.join(nsDir, "core/user/index.js");
+            const rootIndexTs = path.join(nsDir, "index.ts");
+            const rootIndexJs = path.join(nsDir, "index.js");
+            await fs.writeFile(generated, "// ws", "utf-8");
+            await fs.writeFile(subIndex, "export const keep = 1;", "utf-8");
+            await fs.writeFile(subIndexJs, "export {};\n", "utf-8");
+            await fs.writeFile(rootIndexTs, "export * from './mylib';", "utf-8");
+            await fs.writeFile(rootIndexJs, "module.exports = require('./mylib');", "utf-8");
+
+            await selectiveCleanNamespace(nsDir);
+
+            expect(await fs.access(generated).then(() => true).catch(() => false)).toBe(false);
+            expect(await fs.readFile(subIndex, "utf-8")).toBe("export const keep = 1;");
+            expect(await fs.readFile(subIndexJs, "utf-8")).toBe("export {};\n");
+            expect(await fs.readFile(rootIndexTs, "utf-8")).toBe("export * from './mylib';");
+            expect(await fs.readFile(rootIndexJs, "utf-8")).toBe("module.exports = require('./mylib');");
+            // Empty directories the generator did not empty are left alone
+            expect(await fs.access(path.join(nsDir, "drafts")).then(() => true).catch(() => false)).toBe(true);
+        });
+
+        it("should report hand-written barrels as non-generator files", async () => {
+            const nsDir = path.join(tempDir, "schemas/detect-ns");
+            await fs.mkdir(path.join(nsDir, "helpers"), { recursive: true });
+            await fs.writeFile(path.join(nsDir, "a.webservice.d.ts"), "// ws", "utf-8");
+            await fs.writeFile(path.join(nsDir, "index.d.ts"), "export interface GeneratedMoodleServices {}\n", "utf-8");
+            expect(await hasNonGeneratorFiles(nsDir)).toBe(false);
+
+            await fs.writeFile(path.join(nsDir, "helpers/index.ts"), "export const x = 1;", "utf-8");
+            expect(await hasNonGeneratorFiles(nsDir)).toBe(true);
+        });
+
         it("should prune empty intermediate subdirectories when all webservice files are deleted", async () => {
             const nsDir = path.join(tempDir, "schemas/pruning-ns");
             await fs.mkdir(path.join(nsDir, "core/course"), { recursive: true });
@@ -172,6 +213,39 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
             expect(await fs.access(path.join(nsDir, "core")).then(() => true).catch(() => false)).toBe(false);
             // Namespace root remains
             expect(await fs.access(nsDir).then(() => true).catch(() => false)).toBe(true);
+        });
+    });
+
+    describe("generateMasterBarrel outDir protection", () => {
+        const configs = [
+            { namespace: "ws", source: { type: "local", path: "/m" }, webservices: ["*"], outDir: "src/moodle" },
+        ] as any;
+
+        it("should never overwrite or delete hand-written barrels in the outDir root", async () => {
+            const outDirRoot = path.join(tempDir, "src/moodle");
+            await fs.mkdir(outDirRoot, { recursive: true });
+            await fs.writeFile(path.join(outDirRoot, "index.d.ts"), "export type Mine = 1;", "utf-8");
+            await fs.writeFile(path.join(outDirRoot, "index.ts"), "export * from './mine';", "utf-8");
+
+            const skipped = await generateMasterBarrel(path.join(tempDir, "pkg/dist/schemas"), configs, path.join(tempDir, "pkg"), tempDir);
+
+            expect(skipped).toEqual([path.join(outDirRoot, "index.d.ts")]);
+            expect(await fs.readFile(path.join(outDirRoot, "index.d.ts"), "utf-8")).toBe("export type Mine = 1;");
+            expect(await fs.readFile(path.join(outDirRoot, "index.ts"), "utf-8")).toBe("export * from './mine';");
+        });
+
+        it("should refresh a previously generated master barrel and drop stale generated variants", async () => {
+            const outDirRoot = path.join(tempDir, "src/moodle");
+            await fs.mkdir(outDirRoot, { recursive: true });
+            await fs.writeFile(path.join(outDirRoot, "index.d.ts"), "export interface GeneratedMoodleServices { old: 1 }", "utf-8");
+            await fs.writeFile(path.join(outDirRoot, "index.d.mts"), "export interface GeneratedMoodleServices { old: 1 }", "utf-8");
+
+            const skipped = await generateMasterBarrel(path.join(tempDir, "pkg/dist/schemas"), configs, path.join(tempDir, "pkg"), tempDir);
+
+            expect(skipped).toEqual([]);
+            const content = await fs.readFile(path.join(outDirRoot, "index.d.ts"), "utf-8");
+            expect(content).toContain("ws: WsGeneratedServices;");
+            expect(await fs.access(path.join(outDirRoot, "index.d.mts")).then(() => true).catch(() => false)).toBe(false);
         });
     });
 

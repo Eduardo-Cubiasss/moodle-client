@@ -119,52 +119,143 @@ export async function verifyOutDirWritable(targetDir: string): Promise<void> {
     }
 }
 
+const GENERATED_SUFFIXES = [
+    ".webservice.d.ts",
+    ".webservice.ts",
+    ".webservice-client.d.ts",
+    ".webservice-client.ts",
+];
+
+const DECLARATION_BARREL_NAMES = new Set(["index.d.ts", "index.d.mts", "index.ts"]);
+const RUNTIME_STUB_NAMES = new Set(["index.js", "index.mjs"]);
+const SOURCE_MAP_NAMES = new Set(["index.js.map", "index.mjs.map"]);
+
+/** Every barrel emitted by the schema generator or by generateMasterBarrel declares this interface. */
+const BARREL_MARKER = "GeneratedMoodleServices";
+const RUNTIME_STUB_CONTENT = "export {};";
+
+/**
+ * Returns true for generated per-service files (`*.webservice(.d).ts`, `*.webservice-client(.d).ts`).
+ * Barrels (`index.*`) are NOT owned by name: use {@link isGeneratedBarrelFile}, which checks their content.
+ */
 export function isGeneratorOwnedFile(filename: string): boolean {
-    return (
-        filename.endsWith(".webservice.d.ts") ||
-        filename.endsWith(".webservice.ts") ||
-        filename.endsWith(".webservice-client.d.ts") ||
-        filename.endsWith(".webservice-client.ts") ||
-        filename === "index.d.ts" ||
-        filename === "index.d.mts" ||
-        filename === "index.ts" ||
-        filename === "index.js" ||
-        filename === "index.mjs" ||
-        filename === "index.js.map" ||
-        filename === "index.mjs.map"
-    );
+    return GENERATED_SUFFIXES.some((suffix) => filename.endsWith(suffix));
+}
+
+async function readTextFile(fullPath: string): Promise<string | null> {
+    try {
+        return await fs.readFile(fullPath, "utf-8");
+    } catch {
+        return null;
+    }
 }
 
 /**
- * Selectively deletes generated webservice files and barrels from a namespace directory,
- * pruning empty subdirectories bottom-up while strictly preserving user files.
+ * Checks whether a root-level `index.*` file was produced by the generator, based on its content.
+ * User-written barrels with the same names are never considered generated.
  */
-export async function selectiveCleanNamespace(dir: string, isRoot = true): Promise<boolean> {
-    try {
-        const entries = await fs.readdir(dir, { withFileTypes: true });
-        for (const entry of entries) {
-            const fullPath = path.join(dir, entry.name);
-            if (entry.isDirectory()) {
-                const canRemove = await selectiveCleanNamespace(fullPath, false);
-                if (canRemove) {
-                    try {
-                        await fs.rmdir(fullPath);
-                    } catch {
-                        // Directory not empty
-                    }
-                }
-            } else if (entry.isFile() && isGeneratorOwnedFile(entry.name)) {
-                await fs.unlink(fullPath);
-            }
-        }
-        if (!isRoot) {
-            const remaining = await fs.readdir(dir);
-            return remaining.length === 0;
-        }
+export async function isGeneratedBarrelFile(fullPath: string, filename: string): Promise<boolean> {
+    const isDeclaration = DECLARATION_BARREL_NAMES.has(filename);
+    const isRuntimeStub = RUNTIME_STUB_NAMES.has(filename);
+    if (!isDeclaration && !isRuntimeStub) {
         return false;
+    }
+    const content = await readTextFile(fullPath);
+    if (content === null) {
+        return false;
+    }
+    return isDeclaration ? content.includes(BARREL_MARKER) : content.trim() === RUNTIME_STUB_CONTENT;
+}
+
+/**
+ * Checks whether a file inside a namespace directory belongs to the generator.
+ * Barrels and runtime stubs are only recognised at the namespace root.
+ */
+async function isGeneratorOwnedPath(fullPath: string, filename: string, isRoot: boolean): Promise<boolean> {
+    if (isGeneratorOwnedFile(filename)) {
+        return true;
+    }
+    if (!isRoot) {
+        return false;
+    }
+    if (SOURCE_MAP_NAMES.has(filename)) {
+        return true;
+    }
+    return isGeneratedBarrelFile(fullPath, filename);
+}
+
+/**
+ * Removes a barrel only if its content proves it was generated.
+ */
+export async function removeGeneratedBarrel(filePath: string): Promise<void> {
+    if (await isGeneratedBarrelFile(filePath, path.basename(filePath))) {
+        await fs.rm(filePath, { force: true });
+    }
+}
+
+async function isEmptyDirectory(dir: string): Promise<boolean> {
+    try {
+        return (await fs.readdir(dir)).length === 0;
     } catch {
         return false;
     }
+}
+
+/**
+ * Recursively inspects a namespace directory and reports whether it contains anything
+ * the generator did not create (user files, user barrels, user directories).
+ */
+export async function hasNonGeneratorFiles(dir: string, isRoot = true): Promise<boolean> {
+    let entries: import("fs").Dirent[];
+    try {
+        entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+        return false;
+    }
+    for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+            if (await hasNonGeneratorFiles(fullPath, false)) {
+                return true;
+            }
+        } else if (!(await isGeneratorOwnedPath(fullPath, entry.name, isRoot))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Selectively deletes generated webservice files and barrels from a namespace directory.
+ * - `*.webservice(.d).ts` / `*.webservice-client(.d).ts` files are removed anywhere in the tree;
+ * - `index.*` barrels and runtime stubs are removed only at the namespace root and only when generated;
+ * - directories are pruned only when they became empty because generated files were removed,
+ *   so user files and user directories (even empty ones) are never touched.
+ *
+ * @returns true if any generated file was removed inside dir.
+ */
+export async function selectiveCleanNamespace(dir: string, isRoot = true): Promise<boolean> {
+    let entries: import("fs").Dirent[];
+    try {
+        entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+        return false;
+    }
+    let removedAny = false;
+    for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+            const removedInside = await selectiveCleanNamespace(fullPath, false);
+            if (removedInside && (await isEmptyDirectory(fullPath))) {
+                await fs.rmdir(fullPath);
+            }
+            removedAny = removedAny || removedInside;
+        } else if (entry.isFile() && (await isGeneratorOwnedPath(fullPath, entry.name, isRoot))) {
+            await fs.unlink(fullPath);
+            removedAny = true;
+        }
+    }
+    return removedAny;
 }
 
 /**
@@ -247,6 +338,9 @@ export async function ensurePackageDeclarationExports(pkgDir: string): Promise<v
 /**
  * Strips direct MoodleClient module augmentation from sub-barrels
  * so methods are exclusively exposed through their namespace.
+ *
+ * Fresh generation never emits it (augmentClient: false); this only cleans
+ * outDir caches written by moodle-client-schemas < 0.2.8, which always did.
  */
 async function stripDirectModuleAugmentation(dir: string): Promise<void> {
     for (const filename of ["index.d.ts", "index.d.mts"]) {
@@ -284,14 +378,18 @@ async function ensureDtsMtsSync(dir: string): Promise<void> {
 }
 
 /**
- * Generates the master barrel dist/schemas/index.d.ts that aggregates all schema namespaces.
+ * Generates the master barrel dist/schemas/index.d.ts that aggregates all schema namespaces,
+ * and mirrors it to each configured outDir root unless a hand-written index.d.ts already lives there.
+ *
+ * @returns Paths of outDir barrels that were left untouched because they are not generated.
  */
 export async function generateMasterBarrel(
     targetSchemasDir: string,
     configs: MoodleSchemaConfigEntry[],
     pkgDir: string,
     configDir?: string
-): Promise<void> {
+): Promise<string[]> {
+    const skippedBarrels: string[] = [];
     let masterDts = `/**\n * Master barrel for generated Moodle services namespaces.\n */\n`;
 
     for (const entry of configs) {
@@ -350,14 +448,21 @@ export async function generateMasterBarrel(
         for (const outDirPath of uniqueOutDirs) {
             try {
                 await fs.mkdir(outDirPath, { recursive: true });
-                await fs.writeFile(path.join(outDirPath, "index.d.ts"), masterDts, "utf-8");
-                await fs.rm(path.join(outDirPath, "index.d.mts"), { force: true });
-                await fs.rm(path.join(outDirPath, "index.ts"), { force: true });
+                const rootBarrel = path.join(outDirPath, "index.d.ts");
+                if (existsSync(rootBarrel) && !(await isGeneratedBarrelFile(rootBarrel, "index.d.ts"))) {
+                    // A hand-written index.d.ts is never overwritten.
+                    skippedBarrels.push(rootBarrel);
+                } else {
+                    await fs.writeFile(rootBarrel, masterDts, "utf-8");
+                }
+                await removeGeneratedBarrel(path.join(outDirPath, "index.d.mts"));
+                await removeGeneratedBarrel(path.join(outDirPath, "index.ts"));
             } catch {
                 // Ignore
             }
         }
     }
+    return skippedBarrels;
 }
 
 /**
@@ -594,11 +699,10 @@ export async function runGenerator(
             await generateWebserviceFiles(
                 result.schemas as WebServiceSchema[],
                 nsDistDir,
-                { importSource: "@didactika/moodle-client" }
+                { importSource: "@didactika/moodle-client", augmentClient: false }
             );
             await fs.writeFile(path.join(nsDistDir, "index.js"), "export {};\n", "utf-8");
             await fs.writeFile(path.join(nsDistDir, "index.mjs"), "export {};\n", "utf-8");
-            await stripDirectModuleAugmentation(nsDistDir);
             await ensureDtsMtsSync(nsDistDir);
 
             // 2. If outDir is specified, also generate files into outDir/{namespace}
@@ -607,10 +711,9 @@ export async function runGenerator(
                 await generateWebserviceFiles(
                     result.schemas as WebServiceSchema[],
                     nsProjectOutDir,
-                    { importSource: "@didactika/moodle-client" }
+                    { importSource: "@didactika/moodle-client", augmentClient: false }
                 );
-                await stripDirectModuleAugmentation(nsProjectOutDir);
-                await fs.rm(path.join(nsProjectOutDir, "index.d.mts"), { force: true });
+                await removeGeneratedBarrel(path.join(nsProjectOutDir, "index.d.mts"));
             }
 
             // 3. If developing in moodle-client repository, also update src/schemas/{namespace}
@@ -622,9 +725,8 @@ export async function runGenerator(
                     await generateWebserviceFiles(
                         result.schemas as WebServiceSchema[],
                         srcSchemasNsDir,
-                        { importSource: "@didactika/moodle-client" }
+                        { importSource: "@didactika/moodle-client", augmentClient: false }
                     );
-                    await stripDirectModuleAugmentation(srcSchemasNsDir);
                     await ensureDtsMtsSync(srcSchemasNsDir);
                 } catch {
                     // Ignore dev directory copy error
@@ -653,7 +755,13 @@ export async function runGenerator(
     await Promise.all(configs.map((entry) => limit(() => processSingleSchema(entry))));
 
     // Generate aggregated master barrel
-    await generateMasterBarrel(targetSchemasDir, configs, pkgDir, configDir);
+    const skippedBarrels = await generateMasterBarrel(targetSchemasDir, configs, pkgDir, configDir);
+    for (const barrel of skippedBarrels) {
+        logInfo(
+            `[moodle-client] Info: '${barrel}' is not a generated barrel. Preserving it untouched; re-export the namespaces manually if needed.`,
+            options?.silent
+        );
+    }
     await ensurePackageDeclarationExports(pkgDir);
 
     logInfo(
