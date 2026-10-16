@@ -209,7 +209,7 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
         expect(await fs.access(syncedIndex).then(() => true).catch(() => false)).toBe(true);
     });
 
-    it("should strip the direct MoodleClient augmentation left in outDir caches by moodle-client-schemas < 0.2.8", async () => {
+    it("should strip the direct MoodleClient augmentation left in outDir caches by pre-release moodle-client-schemas builds", async () => {
         const outDir = path.join(tempDir, "schemas/local/legacy");
         await fs.mkdir(path.join(outDir, "core/course"), { recursive: true });
         await fs.writeFile(

@@ -340,7 +340,7 @@ export async function ensurePackageDeclarationExports(pkgDir: string): Promise<v
  * so methods are exclusively exposed through their namespace.
  *
  * Fresh generation never emits it (augmentClient: false); this only cleans
- * outDir caches written by moodle-client-schemas < 0.2.8, which always did.
+ * outDir caches written by pre-release moodle-client-schemas builds, which always did.
  */
 async function stripDirectModuleAugmentation(dir: string): Promise<void> {
     for (const filename of ["index.d.ts", "index.d.mts"]) {
