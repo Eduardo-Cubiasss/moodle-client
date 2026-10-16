@@ -6,6 +6,7 @@ export default defineConfig({
         "src/generator/cli.ts",
         "src/generator/create-cli.ts",
         "src/generator/delete-cli.ts",
+        "src/generator/update-cli.ts",
         "src/schemas/index.ts",
     ],
     format: ["cjs", "esm"],

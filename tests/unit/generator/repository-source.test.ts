@@ -32,9 +32,9 @@ describe("Remote Repository & Submodules Suite (Punto 5)", () => {
     });
 
     describe("1. Validacion y Parsers de Repositorio", () => {
-        it("VAL-01: debe permitir la opcion '3' y retornar 'repository'", () => {
-            expect(validateSourceOption("3")).toBe("repository");
-            expect(validateSourceOption("  3  ")).toBe("repository");
+        it("VAL-01: debe permitir la opcion '3' y retornar 'moodle-repository'", () => {
+            expect(validateSourceOption("3")).toBe("moodle-repository");
+            expect(validateSourceOption("  3  ")).toBe("moodle-repository");
         });
 
         it("VAL-02: debe validar URLs de repositorio validas", () => {
@@ -74,9 +74,9 @@ describe("Remote Repository & Submodules Suite (Punto 5)", () => {
                     version: "1.0.0",
                     "moodle-client": [
                         {
-                            namespace: "custom-repo",
+                            namespace: "customRepo",
                             source: {
-                                type: "repository",
+                                type: "moodle-repository",
                                 url: "https://gitlab.myorg.com/moodle.git",
                                 branch: "UEA_MASTER",
                             },
@@ -90,8 +90,8 @@ describe("Remote Repository & Submodules Suite (Punto 5)", () => {
 
             const configs = await loadPackageConfig(pkgJsonPath);
             expect(configs).toHaveLength(1);
-            expect(configs[0].namespace).toBe("custom-repo");
-            expect(configs[0].source.type).toBe("repository");
+            expect(configs[0].namespace).toBe("customRepo");
+            expect(configs[0].source.type).toBe("moodle-repository");
             expect((configs[0].source as any).url).toBe("https://gitlab.myorg.com/moodle.git");
             expect((configs[0].source as any).branch).toBe("UEA_MASTER");
             expect(configs[0].outDir).toBe("src/schemas");
@@ -105,9 +105,9 @@ describe("Remote Repository & Submodules Suite (Punto 5)", () => {
                     version: "1.0.0",
                     "moodle-client": [
                         {
-                            namespace: "custom-repo",
+                            namespace: "customRepo",
                             source: {
-                                type: "repository",
+                                type: "moodle-repository",
                                 url: "https://gitlab.myorg.com/moodle.git",
                             },
                             webservices: ["*"],
@@ -130,9 +130,9 @@ describe("Remote Repository & Submodules Suite (Punto 5)", () => {
                     version: "1.0.0",
                     "moodle-client": [
                         {
-                            namespace: "custom-repo",
+                            namespace: "customRepo",
                             source: {
-                                type: "repository",
+                                type: "moodle-repository",
                             },
                             webservices: ["*"],
                             outDir: "src/schemas",
@@ -151,7 +151,7 @@ describe("Remote Repository & Submodules Suite (Punto 5)", () => {
     describe("2. Flujo Interactivo y Seguridad de Credenciales (SEC-01)", () => {
         it("SEC-01: debe persistir en package.json con outDir obligatorio sin almacenar tokens ni contrasenas", async () => {
             const mockAnswers = [
-                "campus-remote",                       // 1. Namespace
+                "campusRemote",                       // 1. Namespace
                 "3",                                   // 2. Option: Repository
                 "https://gitlab.myorg.com/moodle.git", // 3. URL
                 "MOODLE_405_STABLE",                   // 4. Branch
@@ -168,15 +168,15 @@ describe("Remote Repository & Submodules Suite (Punto 5)", () => {
             });
 
             expect(created).toHaveLength(1);
-            expect(created[0].namespace).toBe("campus-remote");
-            expect(created[0].source.type).toBe("repository");
+            expect(created[0].namespace).toBe("campusRemote");
+            expect(created[0].source.type).toBe("moodle-repository");
             expect(created[0].outDir).toBe("src/moodleSchemas");
 
             const content = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"));
             const entry = content["moodle-client"][0];
 
-            expect(entry.namespace).toBe("campus-remote");
-            expect(entry.source.type).toBe("repository");
+            expect(entry.namespace).toBe("campusRemote");
+            expect(entry.source.type).toBe("moodle-repository");
             expect(entry.source.url).toBe("https://gitlab.myorg.com/moodle.git");
             expect(entry.source.branch).toBe("MOODLE_405_STABLE");
             expect(entry.webservices).toEqual(["core_user_*", "local_custom_*"]);

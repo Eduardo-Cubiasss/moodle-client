@@ -1,15 +1,22 @@
 import fs from "fs/promises";
-import { existsSync, accessSync, constants } from "fs";
+import { existsSync } from "fs";
 import path from "path";
-import os from "os";
 import {
     MoodleSchemaConfigEntry,
     PackageJsonWithMoodleClient,
+    SourceType,
 } from "../interfaces/config.interfaces";
+import { SchemaEntryFlags } from "../interfaces/cli.interfaces";
 import {
-    normalizeMoodleVersion,
-    isMoodleVersionSupported,
-} from "../config/config-manager";
+    parseWebservicesInput,
+    validateNamespace,
+    validateSourceOption,
+    validateRepositoryUrlInput,
+    validateBranchInput,
+    validateMoodleVersionInput,
+    validateLocalPathInput,
+} from "../config/input-validators";
+import { buildEntryFromFlags } from "../config/entry-builder";
 import { runGeneratorWithProgress } from "./progress-bar";
 import { findMoodleClientPackageDir } from "../runner";
 import {
@@ -21,127 +28,16 @@ import {
     parseYesNoInput,
 } from "./prompt-helpers";
 
-export { parseYesNoInput };
-
-export function parseWebservicesInput(input: string): string[] {
-    const trimmed = input.trim();
-    if (!trimmed || trimmed === "[]") {
-        throw new Error("Webservices pattern cannot be empty.");
-    }
-
-    let items: string[];
-    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-        try {
-            const parsed = JSON.parse(trimmed);
-            if (Array.isArray(parsed)) {
-                items = parsed.map((s) => String(s));
-            } else {
-                items = [trimmed];
-            }
-        } catch {
-            const inner = trimmed.slice(1, -1);
-            items = inner.split(",");
-        }
-    } else {
-        items = trimmed.split(",");
-    }
-
-    const filtered = items
-        .map((s) => s.trim().replace(/^["']|["']$/g, "").replace(/\s+/g, ""))
-        .filter((s) => s.length > 0);
-
-    if (filtered.length === 0) {
-        throw new Error("Webservices pattern cannot be empty.");
-    }
-    return filtered;
-}
-
-export function validateNamespace(
-    namespace: string,
-    existingNamespaces: Set<string>
-): boolean {
-    const trimmed = namespace.trim();
-    if (!trimmed) {
-        throw new Error("Namespace cannot be empty.");
-    }
-    if (!/^[a-zA-Z0-9_.-]+$/.test(trimmed)) {
-        throw new Error(
-            "Invalid namespace format. Namespace can only contain letters, numbers, hyphens, underscores, and dots (no spaces)."
-        );
-    }
-    if (existingNamespaces.has(trimmed)) {
-        throw new Error(`Namespace '${trimmed}' already exists.`);
-    }
-    return true;
-}
-
-export function validateSourceOption(option: string): "remote" | "local" | "repository" {
-    const trimmed = option.trim();
-    if (trimmed === "1") {
-        return "remote";
-    }
-    if (trimmed === "2") {
-        return "local";
-    }
-    if (trimmed === "3") {
-        return "repository";
-    }
-    throw new Error("Invalid option. Please enter 1, 2, or 3.");
-}
-
-export function validateRepositoryUrlInput(url: string): string {
-    const trimmed = url.trim();
-    if (!trimmed) {
-        throw new Error("Repository URL cannot be empty.");
-    }
-    if (!/^(https?:\/\/|git@|ssh:\/\/).+/i.test(trimmed)) {
-        throw new Error("Invalid repository URL. Must start with http://, https://, git@, or ssh://");
-    }
-    return trimmed;
-}
-
-export function validateBranchInput(branch: string): string {
-    const trimmed = branch.trim();
-    if (!trimmed) {
-        return "main";
-    }
-    return trimmed;
-}
-
-export function validateMoodleVersionInput(version: string): string {
-    const trimmed = version.trim();
-    if (!trimmed) {
-        throw new Error("Version cannot be empty.");
-    }
-    if (!isMoodleVersionSupported(trimmed)) {
-        throw new Error(
-            `Moodle version '${trimmed}' is unsupported. Web services schema generation requires Moodle 2.0 or higher.`
-        );
-    }
-    return normalizeMoodleVersion(trimmed);
-}
-
-export function validateLocalPathInput(rawPath: string): string {
-    const trimmed = rawPath.trim();
-    if (!trimmed) {
-        throw new Error("Path cannot be empty.");
-    }
-    const resolved = trimmed.startsWith("~/")
-        ? path.join(os.homedir(), trimmed.slice(2))
-        : path.resolve(process.cwd(), trimmed);
-    if (!existsSync(resolved)) {
-        throw new Error(`Directory '${resolved}' does not exist.`);
-    }
-    try {
-        accessSync(resolved, constants.R_OK | (constants.X_OK ?? 0));
-    } catch (err: unknown) {
-        const error = err as NodeJS.ErrnoException;
-        if (error.code === "EACCES" || error.code === "EPERM") {
-            throw new Error(`Permission denied: Cannot read directory '${resolved}'. Grant read permissions (e.g. chmod u+rx '${resolved}').`);
-        }
-    }
-    return trimmed;
-}
+export {
+    parseYesNoInput,
+    parseWebservicesInput,
+    validateNamespace,
+    validateSourceOption,
+    validateRepositoryUrlInput,
+    validateBranchInput,
+    validateMoodleVersionInput,
+    validateLocalPathInput,
+};
 
 async function promptOfficialSource(
     ctx: PromptContext,
@@ -357,7 +253,7 @@ async function promptRepositorySource(
     return {
         namespace,
         source: {
-            type: "repository",
+            type: "moodle-repository",
             url: repoUrl,
             branch,
         },
@@ -372,22 +268,27 @@ export interface PromptCreateSchemasOptions {
     generatorRunner?: (pkgPath: string) => Promise<void>;
 }
 
-export async function promptCreateSchemas(
-    options?: PromptCreateSchemasOptions
-): Promise<MoodleSchemaConfigEntry[]> {
-    const resolvedPkgPath = options?.pkgPath
-        ? path.resolve(options.pkgPath)
-        : path.resolve(process.cwd(), "package.json");
+export interface CreateSchemasFromOptions {
+    pkgPath?: string;
+    flags: SchemaEntryFlags;
+    generatorRunner?: (pkgPath: string) => Promise<void>;
+}
 
-    const pkgExistsInitially = existsSync(resolvedPkgPath);
+interface LoadedPackage {
+    resolvedPkgPath: string;
+    parsedPkg: PackageJsonWithMoodleClient;
+    originalPkgRaw?: string;
+    existedInitially: boolean;
+    existingNamespaces: Set<string>;
+}
+
+async function loadPackageForCreate(pkgPath?: string): Promise<LoadedPackage> {
+    const resolvedPkgPath = pkgPath ? path.resolve(pkgPath) : path.resolve(process.cwd(), "package.json");
+    const existedInitially = existsSync(resolvedPkgPath);
     let originalPkgRaw: string | undefined;
+    let parsedPkg: PackageJsonWithMoodleClient = { name: "moodle-app", version: "1.0.0" };
 
-    let parsedPkg: PackageJsonWithMoodleClient = {
-        name: "moodle-app",
-        version: "1.0.0",
-    };
-
-    if (pkgExistsInitially) {
+    if (existedInitially) {
         try {
             originalPkgRaw = await fs.readFile(resolvedPkgPath, "utf-8");
             parsedPkg = JSON.parse(originalPkgRaw);
@@ -404,6 +305,94 @@ export async function promptCreateSchemas(
             }
         }
     }
+    return { resolvedPkgPath, parsedPkg, originalPkgRaw, existedInitially, existingNamespaces };
+}
+
+/**
+ * Appends the new entries to package.json and generates them. If generation fails, package.json is
+ * restored and every directory created for the new entries is removed.
+ */
+async function persistAndGenerate(
+    loaded: LoadedPackage,
+    newEntries: MoodleSchemaConfigEntry[],
+    generatorRunner?: (pkgPath: string) => Promise<void>
+): Promise<void> {
+    const { resolvedPkgPath, parsedPkg, originalPkgRaw, existedInitially } = loaded;
+
+    if (!Array.isArray(parsedPkg["moodle-client"])) {
+        parsedPkg["moodle-client"] = newEntries;
+    } else {
+        parsedPkg["moodle-client"].push(...newEntries);
+    }
+    await fs.writeFile(resolvedPkgPath, JSON.stringify(parsedPkg, null, 2) + "\n", "utf-8");
+
+    try {
+        if (generatorRunner) {
+            await generatorRunner(resolvedPkgPath);
+        } else {
+            await runGeneratorWithProgress(resolvedPkgPath, {
+                forceNamespaces: newEntries.map((e) => e.namespace),
+            });
+        }
+    } catch (genErr) {
+        // Rollback package.json if initial schema creation failed
+        if (existedInitially && originalPkgRaw !== undefined) {
+            await fs.writeFile(resolvedPkgPath, originalPkgRaw, "utf-8");
+        } else if (!existedInitially) {
+            await fs.rm(resolvedPkgPath, { force: true });
+        }
+
+        // Clean up any directories created for the new entries
+        const configDir = path.dirname(resolvedPkgPath);
+        let pkgDir: string | undefined;
+        try {
+            pkgDir = findMoodleClientPackageDir();
+        } catch {
+            pkgDir = undefined;
+        }
+        for (const entry of newEntries) {
+            if (entry.outDir) {
+                const nsOutDir = path.resolve(configDir, entry.outDir, entry.namespace);
+                await fs.rm(nsOutDir, { recursive: true, force: true });
+                const parentOutDir = path.resolve(configDir, entry.outDir);
+                try {
+                    const items = await fs.readdir(parentOutDir);
+                    if (items.length === 0) {
+                        await fs.rmdir(parentOutDir);
+                    }
+                } catch {
+                    // Ignore if directory doesn't exist
+                }
+            }
+            if (pkgDir) {
+                const distNsDir = path.join(pkgDir, "dist/schemas", entry.namespace);
+                await fs.rm(distNsDir, { recursive: true, force: true });
+            }
+        }
+
+        throw genErr;
+    }
+}
+
+/**
+ * One-line mode of `moodle-create-schemas`: builds the entry from flags, appends it to
+ * package.json and generates it, with the same rollback as the wizard.
+ */
+export async function createSchemasFromOptions(
+    options: CreateSchemasFromOptions
+): Promise<MoodleSchemaConfigEntry> {
+    const loaded = await loadPackageForCreate(options.pkgPath);
+    const entry = buildEntryFromFlags(options.flags, loaded.existingNamespaces);
+    console.log(colors.orange(`Generating schemas for namespace '${entry.namespace}'....\n`));
+    await persistAndGenerate(loaded, [entry], options.generatorRunner);
+    return entry;
+}
+
+export async function promptCreateSchemas(
+    options?: PromptCreateSchemasOptions
+): Promise<MoodleSchemaConfigEntry[]> {
+    const loaded = await loadPackageForCreate(options?.pkgPath);
+    const existingNamespaces = loaded.existingNamespaces;
 
     const sessionCreatedEntries: MoodleSchemaConfigEntry[] = [];
     const isMock = Boolean(options?.mockAnswers && options.mockAnswers.length > 0);
@@ -427,7 +416,7 @@ export async function promptCreateSchemas(
             const namespace = await askQuestion(
                 ctx,
                 "Please enter the namespace name",
-                "moodle5.0",
+                "moodle50",
                 "Namespace: ",
                 (val) => {
                     try {
@@ -444,7 +433,7 @@ export async function promptCreateSchemas(
             console.log(SEPARATOR);
             const sourceTitle =
                 "Please select the source for webservice schemas\n[1] Moodle Official (GitHub)\n[2] Moodle Local (Directory)\n[3] Remote Repository (Configurable)\n";
-            let sourceType = "remote" as "remote" | "local" | "repository";
+            let sourceType: SourceType = "moodle-official";
             await askQuestion(
                 ctx,
                 sourceTitle,
@@ -460,27 +449,10 @@ export async function promptCreateSchemas(
                 }
             );
 
-            let newEntry: MoodleSchemaConfigEntry;
-
-            switch (sourceType) {
-                case "remote":
-                    newEntry = await promptOfficialSource(ctx, namespace);
-                    break;
-                case "local":
-                    newEntry = await promptLocalSource(ctx, namespace);
-                    break;
-                case "repository":
-                    newEntry = await promptRepositorySource(ctx, namespace);
-                    break;
-                default: {
-                    const exhaustiveCheck: never = sourceType;
-                    throw new Error(`Unsupported source type: ${exhaustiveCheck}`);
-                }
-            }
-
+            const newEntry = await promptSourceFields(ctx, namespace, sourceType);
             sessionCreatedEntries.push(newEntry);
 
-            // 6. Create another schema?
+            // 3. Create another schema?
             console.log(SEPARATOR);
             await askQuestion(
                 ctx,
@@ -503,70 +475,36 @@ export async function promptCreateSchemas(
             rl.close();
         }
 
-        // Finish question flow & generate
         console.log(SEPARATOR);
         console.log(colors.orange("Generating schemas....\n"));
-
-        // Persist to package.json tentatively for generator execution
-        if (!Array.isArray(parsedPkg["moodle-client"])) {
-            parsedPkg["moodle-client"] = sessionCreatedEntries;
-        } else {
-            parsedPkg["moodle-client"].push(...sessionCreatedEntries);
-        }
-
-        await fs.writeFile(
-            resolvedPkgPath,
-            JSON.stringify(parsedPkg, null, 2) + "\n",
-            "utf-8"
-        );
-
-        try {
-            // Run schema generation
-            if (options?.generatorRunner) {
-                await options.generatorRunner(resolvedPkgPath);
-            } else {
-                await runGeneratorWithProgress(resolvedPkgPath, {
-                    forceNamespaces: sessionCreatedEntries.map((e) => e.namespace),
-                });
-            }
-        } catch (genErr) {
-            // Rollback package.json if initial schema creation failed
-            if (pkgExistsInitially && originalPkgRaw !== undefined) {
-                await fs.writeFile(resolvedPkgPath, originalPkgRaw, "utf-8");
-            } else if (!pkgExistsInitially) {
-                await fs.rm(resolvedPkgPath, { force: true });
-            }
-
-            // Clean up any directories created for sessionCreatedEntries
-            const configDir = path.dirname(resolvedPkgPath);
-            const pkgDir = findMoodleClientPackageDir();
-            for (const entry of sessionCreatedEntries) {
-                if (entry.outDir) {
-                    const nsOutDir = path.resolve(configDir, entry.outDir, entry.namespace);
-                    await fs.rm(nsOutDir, { recursive: true, force: true });
-                    const parentOutDir = path.resolve(configDir, entry.outDir);
-                    try {
-                        const items = await fs.readdir(parentOutDir);
-                        if (items.length === 0) {
-                            await fs.rmdir(parentOutDir);
-                        }
-                    } catch {
-                        // Ignore if directory doesn't exist
-                    }
-                }
-                if (pkgDir) {
-                    const distNsDir = path.join(pkgDir, "dist/schemas", entry.namespace);
-                    await fs.rm(distNsDir, { recursive: true, force: true });
-                }
-            }
-
-            throw genErr;
-        }
+        await persistAndGenerate(loaded, sessionCreatedEntries, options?.generatorRunner);
 
         return sessionCreatedEntries;
     } finally {
         if (rl) {
             rl.close();
+        }
+    }
+}
+
+/**
+ * Asks the source-specific questions for a new entry.
+ */
+function promptSourceFields(
+    ctx: PromptContext,
+    namespace: string,
+    sourceType: SourceType
+): Promise<MoodleSchemaConfigEntry> {
+    switch (sourceType) {
+        case "moodle-official":
+            return promptOfficialSource(ctx, namespace);
+        case "moodle-local":
+            return promptLocalSource(ctx, namespace);
+        case "moodle-repository":
+            return promptRepositorySource(ctx, namespace);
+        default: {
+            const exhaustiveCheck: never = sourceType;
+            throw new Error(`Unsupported source type: ${exhaustiveCheck}`);
         }
     }
 }

@@ -22,12 +22,18 @@ export function createPromptInterface(
     return readline.createInterface({ input, output });
 }
 
+/**
+ * Asks a question until the validator accepts the answer. `prefill` is typed into the input line
+ * beforehand, so the user can keep it (Enter), edit it, or delete it. With mock answers, each answer
+ * stands for the final content of the line.
+ */
 export async function askQuestion(
     ctx: PromptContext,
     title: string,
     example?: string,
     promptLabel = "Response: ",
-    validator?: (val: string) => string | undefined
+    validator?: (val: string) => string | undefined,
+    prefill?: string
 ): Promise<string> {
     while (true) {
         if (title) {
@@ -42,11 +48,11 @@ export async function askQuestion(
             answer = ctx.mockAnswers.shift() ?? "";
             console.log(`${promptLabel}${answer}`);
         } else if (ctx.rl) {
-            answer = await ctx.rl.question(promptLabel);
+            answer = await questionWithPrefill(ctx.rl, promptLabel, prefill);
         } else {
             const rl = createPromptInterface(ctx.input, ctx.output);
             try {
-                answer = await rl.question(promptLabel);
+                answer = await questionWithPrefill(rl, promptLabel, prefill);
             } finally {
                 rl.close();
             }
@@ -63,6 +69,27 @@ export async function askQuestion(
         return trimmed;
     }
 }
+
+/**
+ * Asks on the readline interface with `prefill` already typed in the editable line.
+ */
+function questionWithPrefill(rl: readline.Interface, label: string, prefill?: string): Promise<string> {
+    const pending = rl.question(label);
+    if (prefill) {
+        rl.write(prefill);
+    }
+    return pending;
+}
+
+/**
+ * Whether an error is readline's rejection when the user presses Ctrl+C at a question.
+ */
+export function isPromptCancelled(error: unknown): boolean {
+    return typeof error === "object" && error !== null && (error as { code?: unknown }).code === "ABORT_ERR";
+}
+
+/** Exit code of a process interrupted with Ctrl+C (128 + SIGINT). */
+export const CANCELLED_EXIT_CODE = 130;
 
 export function parseYesNoInput(input: string): boolean {
     const normalized = input.trim().toLowerCase();

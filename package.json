@@ -27,7 +27,8 @@
   "bin": {
     "moodle-generate-schemas": "dist/generator/cli.js",
     "moodle-create-schemas": "dist/generator/create-cli.js",
-    "moodle-delete-schemas": "dist/generator/delete-cli.js"
+    "moodle-delete-schemas": "dist/generator/delete-cli.js",
+    "moodle-update-schemas": "dist/generator/update-cli.js"
   },
   "scripts": {
     "clean": "rimraf dist",
@@ -40,7 +41,9 @@
     "test:coverage": "vitest run --coverage",
     "moodle:generate-webservices": "tsx src/generator/cli.ts",
     "moodle-create-schemas": "tsx src/generator/create-cli.ts",
-    "moodle-delete-schemas": "tsx src/generator/delete-cli.ts"
+    "moodle-delete-schemas": "tsx src/generator/delete-cli.ts",
+    "moodle-update-schemas": "tsx src/generator/update-cli.ts",
+    "schemas:bundle": "tsx scripts/bundle-schemas.ts"
   },
   "repository": {
     "type": "git",

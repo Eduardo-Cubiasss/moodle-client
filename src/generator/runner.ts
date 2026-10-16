@@ -12,6 +12,10 @@ import {
 } from "@didactika/moodle-client-schemas";
 import {
     loadPackageConfig,
+    loadPackageConfigDetailed,
+    describeInvalidNamespace,
+    reservedNamespaceError,
+    InvalidConfigEntry,
     MoodleSchemaConfigEntry,
 } from "./config/config-manager";
 import { cloneMoodleVersion, cleanupMoodleDirectory } from "./downloader/moodle-downloader";
@@ -20,6 +24,8 @@ import {
     isLocalSource,
     isRepositorySource,
     isOfficialSource,
+    BUNDLED_NAMESPACE,
+    BUNDLED_MOODLE_VERSION,
 } from "./interfaces/config.interfaces";
 import {
     createGeneratorError,
@@ -27,6 +33,23 @@ import {
     checkPhpEnvironment,
     verifyLocalMoodlePath,
 } from "./utils/environment-validator";
+
+/** Isolated PHP processes used to retry services after the extraction batch crashes or stalls. */
+const EXTRACTION_CONCURRENCY = 8;
+
+/**
+ * A namespace left out of a targeted run because its configuration is invalid.
+ */
+export interface SkippedNamespace {
+    namespace?: string;
+    /** Why the entry is invalid (the details of its configuration error) */
+    reason: string;
+}
+
+export interface RunGeneratorResult {
+    /** Invalid entries that were not processed; their existing schemas were left untouched */
+    skipped: SkippedNamespace[];
+}
 
 export interface RunGeneratorOptions {
     silent?: boolean;
@@ -138,7 +161,7 @@ const RUNTIME_STUB_CONTENT = "export {};";
  * Returns true for generated per-service files (`*.webservice(.d).ts`, `*.webservice-client(.d).ts`).
  * Barrels (`index.*`) are NOT owned by name: use {@link isGeneratedBarrelFile}, which checks their content.
  */
-export function isGeneratorOwnedFile(filename: string): boolean {
+function isGeneratorOwnedFile(filename: string): boolean {
     return GENERATED_SUFFIXES.some((suffix) => filename.endsWith(suffix));
 }
 
@@ -377,89 +400,111 @@ async function ensureDtsMtsSync(dir: string): Promise<void> {
     }
 }
 
+/** JSDoc source line of the bundled namespace, shared with scripts/bundle-schemas.ts. */
+export function bundledSourceDescription(): string {
+    return `bundled with @didactika/moodle-client (Moodle ${BUNDLED_MOODLE_VERSION})`;
+}
+
+export interface BarrelNamespace {
+    namespace: string;
+    /** Shown in the JSDoc of the namespace property */
+    source: string;
+}
+
+function describeSource(entry: MoodleSchemaConfigEntry): string {
+    if (isLocalSource(entry.source)) {
+        return `local (${entry.source.path})`;
+    }
+    if (isRepositorySource(entry.source)) {
+        return `repository (${entry.source.url}#${entry.source.branch || "main"})`;
+    }
+    if (isOfficialSource(entry.source)) {
+        return `moodle (v${entry.source.version})`;
+    }
+    return "unknown";
+}
+
 /**
- * Generates the master barrel dist/schemas/index.d.ts that aggregates all schema namespaces,
- * and mirrors it to each configured outDir root unless a hand-written index.d.ts already lives there.
+ * Builds the source of a master barrel exposing the given namespaces on MoodleClient.
+ */
+export function buildMasterBarrel(namespaces: BarrelNamespace[]): string {
+    const typeName = (ns: string) => `${toPascalCase(ns)}GeneratedServices`;
+    let dts = `/**\n * Master barrel for generated Moodle services namespaces.\n */\n`;
+    for (const { namespace } of namespaces) {
+        dts += `import type { GeneratedMoodleServices as ${typeName(namespace)} } from "./${namespace}/index";\n`;
+    }
+    dts += `\nexport type {\n`;
+    for (const { namespace } of namespaces) {
+        dts += `    ${typeName(namespace)},\n`;
+    }
+    dts += `};\n`;
+    dts += `\n// Namespace type barrels\n`;
+    for (const { namespace } of namespaces) {
+        dts += `export type * as ${namespace} from "./${namespace}/index";\n`;
+    }
+    dts += `\nexport interface GeneratedMoodleServices {\n`;
+    for (const { namespace, source } of namespaces) {
+        dts += `    /**\n     * Moodle web services namespace '${namespace}'.\n     * Source: ${source}\n     */\n`;
+        dts += `    ${namespace}: ${typeName(namespace)};\n`;
+    }
+    dts += `}\n\n`;
+    dts += `declare module "@didactika/moodle-client" {\n`;
+    dts += `    interface MoodleClient extends GeneratedMoodleServices {}\n`;
+    dts += `}\n`;
+    return dts;
+}
+
+/**
+ * Generates the master barrel dist/schemas/index.d.ts: the bundled namespace (when its schemas are
+ * installed) plus every configured one. Each configured outDir gets a barrel with only the namespaces
+ * that live in it, unless a hand-written index.d.ts already lives there.
  *
  * @returns Paths of outDir barrels that were left untouched because they are not generated.
  */
 export async function generateMasterBarrel(
     targetSchemasDir: string,
     configs: MoodleSchemaConfigEntry[],
-    pkgDir: string,
+    _pkgDir: string,
     configDir?: string
 ): Promise<string[]> {
     const skippedBarrels: string[] = [];
-    let masterDts = `/**\n * Master barrel for generated Moodle services namespaces.\n */\n`;
+    const userEntries = configs.filter((entry) => entry.namespace !== BUNDLED_NAMESPACE);
+    const bundled: BarrelNamespace[] = (await hasExistingSchemas(path.join(targetSchemasDir, BUNDLED_NAMESPACE)))
+        ? [{ namespace: BUNDLED_NAMESPACE, source: bundledSourceDescription() }]
+        : [];
+    const toBarrel = (entry: MoodleSchemaConfigEntry): BarrelNamespace => ({ namespace: entry.namespace, source: describeSource(entry) });
 
-    for (const entry of configs) {
-        const typeName = `${toPascalCase(entry.namespace)}GeneratedServices`;
-        masterDts += `import type { GeneratedMoodleServices as ${typeName} } from "./${entry.namespace}/index";\n`;
-    }
-
-    masterDts += `\nexport type {\n`;
-    for (const entry of configs) {
-        const typeName = `${toPascalCase(entry.namespace)}GeneratedServices`;
-        masterDts += `    ${typeName},\n`;
-    }
-    masterDts += `};\n`;
-
-    masterDts += `\n// Namespace type barrels\n`;
-    for (const entry of configs) {
-        masterDts += `export type * as ${entry.namespace} from "./${entry.namespace}/index";\n`;
-    }
-
-    masterDts += `\nexport interface GeneratedMoodleServices {\n`;
-    for (const entry of configs) {
-        const typeName = `${toPascalCase(entry.namespace)}GeneratedServices`;
-        let sourceDesc = "";
-        if (isLocalSource(entry.source)) {
-            sourceDesc = `local (${entry.source.path})`;
-        } else if (isRepositorySource(entry.source)) {
-            sourceDesc = `repository (${entry.source.url}#${entry.source.branch || "main"})`;
-        } else if (isOfficialSource(entry.source)) {
-            sourceDesc = `moodle (v${entry.source.version})`;
-        } else {
-            sourceDesc = "unknown";
-        }
-        masterDts += `    /**\n     * Moodle web services namespace '${entry.namespace}'.\n     * Source: ${sourceDesc}\n     */\n`;
-        masterDts += `    ${entry.namespace}: ${typeName};\n`;
-    }
-    masterDts += `}\n\n`;
-
-    masterDts += `declare module "@didactika/moodle-client" {\n`;
-    masterDts += `    interface MoodleClient extends GeneratedMoodleServices {}\n`;
-    masterDts += `}\n`;
-
+    const masterDts = buildMasterBarrel([...bundled, ...userEntries.map(toBarrel)]);
     await fs.mkdir(targetSchemasDir, { recursive: true });
     await fs.writeFile(path.join(targetSchemasDir, "index.d.ts"), masterDts, "utf-8");
     await fs.writeFile(path.join(targetSchemasDir, "index.d.mts"), masterDts, "utf-8");
     await fs.writeFile(path.join(targetSchemasDir, "index.js"), "export {};\n", "utf-8");
     await fs.writeFile(path.join(targetSchemasDir, "index.mjs"), "export {};\n", "utf-8");
 
-    // Also write master barrel to outDir root if configured
-    if (configDir) {
-        const uniqueOutDirs = new Set<string>();
-        for (const entry of configs) {
-            if (entry.outDir) {
-                uniqueOutDirs.add(path.resolve(configDir, entry.outDir));
-            }
+    if (!configDir) {
+        return skippedBarrels;
+    }
+    const byOutDir = new Map<string, MoodleSchemaConfigEntry[]>();
+    for (const entry of userEntries) {
+        if (entry.outDir) {
+            const outDirPath = path.resolve(configDir, entry.outDir);
+            byOutDir.set(outDirPath, [...(byOutDir.get(outDirPath) ?? []), entry]);
         }
-        for (const outDirPath of uniqueOutDirs) {
-            try {
-                await fs.mkdir(outDirPath, { recursive: true });
-                const rootBarrel = path.join(outDirPath, "index.d.ts");
-                if (existsSync(rootBarrel) && !(await isGeneratedBarrelFile(rootBarrel, "index.d.ts"))) {
-                    // A hand-written index.d.ts is never overwritten.
-                    skippedBarrels.push(rootBarrel);
-                } else {
-                    await fs.writeFile(rootBarrel, masterDts, "utf-8");
-                }
-                await removeGeneratedBarrel(path.join(outDirPath, "index.d.mts"));
-                await removeGeneratedBarrel(path.join(outDirPath, "index.ts"));
-            } catch {
-                // Ignore
+    }
+    for (const [outDirPath, entries] of byOutDir) {
+        try {
+            await fs.mkdir(outDirPath, { recursive: true });
+            const rootBarrel = path.join(outDirPath, "index.d.ts");
+            if (existsSync(rootBarrel) && !(await isGeneratedBarrelFile(rootBarrel, "index.d.ts"))) {
+                // A hand-written index.d.ts is never overwritten.
+                skippedBarrels.push(rootBarrel);
+            } else {
+                await fs.writeFile(rootBarrel, buildMasterBarrel(entries.map(toBarrel)), "utf-8");
             }
+            await removeGeneratedBarrel(path.join(outDirPath, "index.d.mts"));
+            await removeGeneratedBarrel(path.join(outDirPath, "index.ts"));
+        } catch {
+            // Ignore
         }
     }
     return skippedBarrels;
@@ -469,16 +514,78 @@ export async function generateMasterBarrel(
  * Executes the complete web service generation and storage pipeline for Moodle client.
  * Schemas are stored in dist/schemas/{namespace}/ and [outDir]/{namespace}/.
  */
+/**
+ * Fails when a namespace requested for regeneration (e.g. with --namespace) is not configured.
+ */
+function assertNamespacesConfigured(requested: string[] | undefined, configs: MoodleSchemaConfigEntry[]): void {
+    if (requested?.includes(BUNDLED_NAMESPACE)) {
+        throw reservedNamespaceError();
+    }
+    const configured = new Set(configs.map((c) => c.namespace));
+    const missing = (requested ?? []).filter((ns) => !configured.has(ns));
+    if (missing.length > 0) {
+        const known = configs.map((c) => `'${c.namespace}'`).join(", ") || "none";
+        throw createGeneratorError({
+            code: "ERR_NAMESPACE_NOT_FOUND",
+            title: "Namespace Not Found",
+            details: `Namespace${missing.length > 1 ? "s" : ""} ${missing.map((ns) => `'${ns}'`).join(", ")} ${missing.length > 1 ? "are" : "is"} not configured in 'moodle-client'. Configured namespaces: ${known}.`,
+            action: "Check the value of '--namespace'.",
+        });
+    }
+}
+
+/**
+ * Loads the configurations for a run. A full run fails on any invalid entry. A targeted run
+ * (`forceNamespaces`, used by --namespace, update --sync and create) only needs the targeted
+ * namespaces to be valid: the other invalid entries are returned as skipped, so one broken entry
+ * does not block work on another namespace. An entry using the bundled namespace always fails.
+ */
+async function loadConfigsForRun(
+    configPath: string | undefined,
+    targeted: string[] | undefined
+): Promise<{ configs: MoodleSchemaConfigEntry[]; skipped: InvalidConfigEntry[] }> {
+    if (!targeted || targeted.length === 0) {
+        return { configs: await loadPackageConfig(configPath), skipped: [] };
+    }
+    const { configs, invalid } = await loadPackageConfigDetailed(configPath);
+    // An entry claiming the bundled namespace is never skipped: it must be removed from package.json
+    const blocking = invalid.find(
+        (entry) =>
+            (entry.error.code as string) === "ERR_CONFIG_RESERVED_NAMESPACE" ||
+            (entry.namespace !== undefined && targeted.includes(entry.namespace))
+    );
+    if (blocking) {
+        throw blocking.error;
+    }
+    return { configs, skipped: invalid };
+}
+
+/**
+ * Skipped entries whose schemas are still installed in the package stay in the master barrel,
+ * so their types do not disappear from MoodleClient while their configuration is being fixed.
+ */
+async function keptSkippedEntries(skipped: InvalidConfigEntry[], targetSchemasDir: string): Promise<MoodleSchemaConfigEntry[]> {
+    const kept: MoodleSchemaConfigEntry[] = [];
+    for (const entry of skipped) {
+        if (entry.namespace && !describeInvalidNamespace(entry.namespace) && (await hasExistingSchemas(path.join(targetSchemasDir, entry.namespace)))) {
+            kept.push(entry.raw as MoodleSchemaConfigEntry);
+        }
+    }
+    return kept;
+}
+
 export async function runGenerator(
     configPath?: string,
     options?: RunGeneratorOptions
-): Promise<void> {
+): Promise<RunGeneratorResult> {
     const resolvedConfigPath = configPath
         ? path.resolve(configPath)
         : path.resolve(process.cwd(), "package.json");
     const configDir = path.dirname(resolvedConfigPath);
 
-    const configs = await loadPackageConfig(configPath);
+    const { configs, skipped } = await loadConfigsForRun(configPath, options?.forceNamespaces);
+    assertNamespacesConfigured(options?.forceNamespaces, configs);
+    const skippedNamespaces = skipped.flatMap((entry) => (entry.namespace ? [entry.namespace] : []));
     const pkgDir = findMoodleClientPackageDir();
     const targetSchemasDir = path.join(pkgDir, "dist/schemas");
 
@@ -491,10 +598,11 @@ export async function runGenerator(
     // Prune orphaned/unmanaged schema namespaces from dist/schemas
     try {
         if (existsSync(targetSchemasDir)) {
-            const configuredNamespaces = new Set(configs.map((c) => c.namespace));
+            const configuredNamespaces = new Set([...configs.map((c) => c.namespace), ...skippedNamespaces]);
             const distEntries = await fs.readdir(targetSchemasDir, { withFileTypes: true });
             for (const entry of distEntries) {
-                if (entry.isDirectory() && !configuredNamespaces.has(entry.name)) {
+                // The bundled namespace is part of the package: never pruned
+                if (entry.isDirectory() && entry.name !== BUNDLED_NAMESPACE && !configuredNamespaces.has(entry.name)) {
                     const srcSchemaDir = path.join(pkgDir, "src/schemas", entry.name);
                     if (!existsSync(srcSchemaDir)) {
                         await fs.rm(path.join(targetSchemasDir, entry.name), { recursive: true, force: true });
@@ -512,7 +620,7 @@ export async function runGenerator(
 
     // Check for unmanaged directories in outDir and inform user
     if (configDir) {
-        const configuredNamespaces = new Set(configs.map((c) => c.namespace));
+        const configuredNamespaces = new Set([...configs.map((c) => c.namespace), ...skippedNamespaces]);
         const uniqueOutDirs = new Set<string>();
         for (const entry of configs) {
             if (entry.outDir) {
@@ -647,7 +755,7 @@ export async function runGenerator(
                 code: "ERR_CONFIG_INVALID_JSON",
                 title: "Invalid Source Type",
                 details: `Configuration '${entry.namespace}' has unknown source type.`,
-                action: "Set 'source.type' to 'moodle-official', 'local', or 'repository'.",
+                action: "Set 'source.type' to 'moodle-official', 'moodle-repository' or 'moodle-local'.",
             });
         }
 
@@ -656,7 +764,7 @@ export async function runGenerator(
             const result = await extractWebservice({
                 moodlePath: targetMoodlePath,
                 services: entry.webservices,
-                concurrency: entry.concurrency ?? 8,
+                concurrency: EXTRACTION_CONCURRENCY,
             });
 
             if (result.errors && result.errors.length > 0) {
@@ -755,7 +863,8 @@ export async function runGenerator(
     await Promise.all(configs.map((entry) => limit(() => processSingleSchema(entry))));
 
     // Generate aggregated master barrel
-    const skippedBarrels = await generateMasterBarrel(targetSchemasDir, configs, pkgDir, configDir);
+    const barrelConfigs = [...configs, ...(await keptSkippedEntries(skipped, targetSchemasDir))];
+    const skippedBarrels = await generateMasterBarrel(targetSchemasDir, barrelConfigs, pkgDir, configDir);
     for (const barrel of skippedBarrels) {
         logInfo(
             `[moodle-client] Info: '${barrel}' is not a generated barrel. Preserving it untouched; re-export the namespaces manually if needed.`,
@@ -768,4 +877,8 @@ export async function runGenerator(
         `[moodle-client] You can import types and clients directly: import { MoodleClient } from "@didactika/moodle-client";`,
         options?.silent
     );
+
+    return {
+        skipped: skipped.map((entry) => ({ namespace: entry.namespace, reason: entry.error.details ?? entry.error.message })),
+    };
 }
