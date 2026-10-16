@@ -137,8 +137,8 @@ If initial schema generation fails during the interactive wizard (e.g. invalid c
 | `ERR_REPOSITORY_NOT_FOUND` | Remote Repository Not Found | Network / Config | Remote repository URL returned HTTP 404. | Check and correct `source.url` in `package.json`, or verify private repository access. |
 | `ERR_NETWORK_DISCONNECTED` | Network Connection Failed | Network | Connection timeout, DNS failure, or network unreachable. | Check internet connection, proxy settings, or firewall and retry. |
 | `ERR_GIT_NOT_FOUND` | Git Executable Not Found | Dependencies | `git` command is not installed or not in system PATH. | Install Git and ensure the `git` executable is accessible in PATH. |
-| `ERR_PHP_NOT_FOUND` | PHP CLI Not Found | Dependencies | `php` command is not installed or not in system PATH. | Install PHP 7.4 or higher (PHP 8.1+ recommended) and ensure `php` is in PATH. |
-| `ERR_PHP_VERSION_UNSUPPORTED` | Unsupported PHP Version | Dependencies | Installed PHP version is below required 7.4. | Upgrade PHP CLI installation to PHP 7.4 or higher. |
+| `ERR_PHP_NOT_FOUND` | PHP CLI Not Found | Dependencies | `php` command is not installed or not in system PATH. | Install PHP 8.0 or higher (PHP 8.1+ recommended) and ensure `php` is in PATH. |
+| `ERR_PHP_VERSION_UNSUPPORTED` | Unsupported PHP Version | Dependencies | Installed PHP version is below required 8.0. | Upgrade PHP CLI installation to PHP 8.0 or higher. |
 | `ERR_ARCHIVE_EXTRACTION_FAILED` | Archive Extraction Failed | System / Disk | Error unpacking downloaded Moodle tarball archive. | Check disk space and network integrity, or retry the command. |
 | `ERR_CONFIG_FILE_NOT_FOUND` | Configuration File Not Found | Config | `package.json` or custom `--config` file does not exist. | Verify configuration file path. |
 | `ERR_CONFIG_INVALID_JSON` | Invalid Configuration File | Config | Configuration file contains malformed JSON syntax. | Fix JSON syntax in configuration file. |
