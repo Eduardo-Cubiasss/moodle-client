@@ -470,7 +470,7 @@ The generator emits clear, actionable error blocks:
 | `ERR_CONFIG_MISSING_OUTDIR_REPOSITORY` | Missing outDir in Repository Mode | When using `source.type: "repository"`, `outDir` is required. |
 | `ERR_CONFIG_MISSING_REPOSITORY_URL` | Missing Repository URL | When using `source.type: "repository"`, `source.url` is required. |
 | `ERR_MOODLE_VERSION_UNSUPPORTED` | Unsupported Moodle Version | Configured Moodle version is lower than 2.0. Set `"version"` to a supported version (e.g. `"4.5"`). |
-| `ERR_PHP_NOT_FOUND` | PHP CLI Not Found | `php` binary was not found in system `PATH`. Install PHP 7.4 or higher. |
+| `ERR_PHP_NOT_FOUND` | PHP CLI Not Found | `php` binary was not found in system `PATH`. Install PHP 8.0 or higher. |
 | `ERR_MOODLE_PATH_NOT_ROOT` | Invalid Moodle Root Directory | The directory specified in `source.path` has no `version.php`. Point directly to the Moodle installation root. |
 | `ERR_NO_SERVICES_FOUND` | No Web Services Found | The codebase contains no `db/services.php` files. Verify that the Moodle installation is complete. |
 | `ERR_SERVICE_NOT_FOUND` | Web Service Not Found | A pattern in `webservices` array did not match any declared web service. |
