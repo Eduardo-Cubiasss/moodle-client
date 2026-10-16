@@ -91,7 +91,7 @@ describe("moodle-delete-schemas unit tests", () => {
 
             // Create generated files
             await fs.writeFile(path.join(nsDir, "core_user_get_users.webservice.d.ts"), "// generated");
-            await fs.writeFile(path.join(nsDir, "index.d.ts"), "// generated barrel");
+            await fs.writeFile(path.join(nsDir, "index.d.ts"), "export interface GeneratedMoodleServices {}\n");
 
             const initialPkg = {
                 name: "my-app",
@@ -119,6 +119,70 @@ describe("moodle-delete-schemas unit tests", () => {
             expect(nsDirExists).toBe(false);
         });
 
+        it("should ask before force-deleting when the namespace contains a hand-written index.ts", async () => {
+            const outDir = path.join(tempDir, "src/moodleLegacySchemas");
+            const nsDir = path.join(outDir, "moodleLegacy");
+            await fs.mkdir(path.join(nsDir, "helpers"), { recursive: true });
+
+            await fs.writeFile(path.join(nsDir, "core_user_get_users.webservice.d.ts"), "// generated");
+            await fs.writeFile(path.join(nsDir, "index.d.ts"), "export interface GeneratedMoodleServices {}\n");
+            await fs.writeFile(path.join(nsDir, "helpers/index.ts"), "export const helper = 1;");
+
+            const initialPkg = {
+                name: "my-app",
+                "moodle-client": [
+                    {
+                        namespace: "moodleLegacy",
+                        source: { type: "local", path: "/path/to/moodle" },
+                        webservices: ["core_user_*"],
+                        outDir: "src/moodleLegacySchemas",
+                    },
+                ],
+            };
+            await fs.writeFile(pkgJsonPath, JSON.stringify(initialPkg, null, 2), "utf-8");
+
+            await promptDeleteSchemas({
+                pkgPath: pkgJsonPath,
+                mockAnswers: ["1", "n"],
+                baseDir: tempDir,
+            });
+
+            expect(await fs.readFile(path.join(nsDir, "helpers/index.ts"), "utf-8")).toBe("export const helper = 1;");
+            expect(await fs.access(path.join(nsDir, "core_user_get_users.webservice.d.ts")).then(() => true).catch(() => false)).toBe(false);
+            expect(await fs.access(path.join(nsDir, "index.d.ts")).then(() => true).catch(() => false)).toBe(false);
+        });
+
+        it("should keep a hand-written index.ts in the outDir root when deleting a namespace", async () => {
+            const outDir = path.join(tempDir, "src/moodleLegacySchemas");
+            const nsDir = path.join(outDir, "moodleLegacy");
+            await fs.mkdir(nsDir, { recursive: true });
+            await fs.writeFile(path.join(nsDir, "core_user_get_users.webservice.d.ts"), "// generated");
+            await fs.writeFile(path.join(outDir, "index.ts"), "export * from './custom';");
+            await fs.writeFile(path.join(outDir, "index.d.ts"), "/**\n * Master barrel for generated Moodle services namespaces.\n */\nexport interface GeneratedMoodleServices {}\n");
+
+            const initialPkg = {
+                name: "my-app",
+                "moodle-client": [
+                    {
+                        namespace: "moodleLegacy",
+                        source: { type: "local", path: "/path/to/moodle" },
+                        webservices: ["core_user_*"],
+                        outDir: "src/moodleLegacySchemas",
+                    },
+                ],
+            };
+            await fs.writeFile(pkgJsonPath, JSON.stringify(initialPkg, null, 2), "utf-8");
+
+            await promptDeleteSchemas({
+                pkgPath: pkgJsonPath,
+                mockAnswers: ["1"],
+                baseDir: tempDir,
+            });
+
+            expect(await fs.readFile(path.join(outDir, "index.ts"), "utf-8")).toBe("export * from './custom';");
+            expect(await fs.access(path.join(outDir, "index.d.ts")).then(() => true).catch(() => false)).toBe(false);
+        });
+
         it("should preserve user files in outDir and not delete folder if user files exist and user answers 'n'", async () => {
             const outDir = path.join(tempDir, "src/moodleLegacySchemas");
             const nsDir = path.join(outDir, "moodleLegacy");
@@ -126,7 +190,7 @@ describe("moodle-delete-schemas unit tests", () => {
 
             // Create generated file AND custom user file
             await fs.writeFile(path.join(nsDir, "core_user_get_users.webservice.d.ts"), "// generated");
-            await fs.writeFile(path.join(nsDir, "index.d.ts"), "// generated barrel");
+            await fs.writeFile(path.join(nsDir, "index.d.ts"), "export interface GeneratedMoodleServices {}\n");
             await fs.writeFile(path.join(nsDir, "my-custom-helper.ts"), "export const helper = 1;");
 
             const initialPkg = {
@@ -178,7 +242,7 @@ describe("moodle-delete-schemas unit tests", () => {
 
             // Create generated file AND custom user file
             await fs.writeFile(path.join(nsDir, "core_user_get_users.webservice.d.ts"), "// generated");
-            await fs.writeFile(path.join(nsDir, "index.d.ts"), "// generated barrel");
+            await fs.writeFile(path.join(nsDir, "index.d.ts"), "export interface GeneratedMoodleServices {}\n");
             await fs.writeFile(path.join(nsDir, "my-custom-helper.ts"), "export const helper = 1;");
 
             const initialPkg = {

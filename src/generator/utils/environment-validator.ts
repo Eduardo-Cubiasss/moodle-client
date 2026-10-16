@@ -16,7 +16,7 @@ export function createGeneratorError(options: ExtendedGeneratorErrorOptions): Mo
 }
 
 /**
- * Checks whether the PHP CLI binary is installed and has a supported version (>= 7.4).
+ * Checks whether the PHP CLI binary is installed and has a supported version (>= 8.0).
  */
 export async function checkPhpEnvironment(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -31,7 +31,7 @@ export async function checkPhpEnvironment(): Promise<void> {
                             code: "ERR_PHP_NOT_FOUND",
                             title: "PHP CLI Not Found",
                             details: "PHP CLI was not found on your system PATH.",
-                            action: 'Install PHP 7.4 or higher (PHP 8.1+ recommended) and ensure the "php" executable is accessible in your system PATH.',
+                            action: 'Install PHP 8.0 or higher (PHP 8.1+ recommended) and ensure the "php" executable is accessible in your system PATH.',
                             cause: error,
                         })
                     );
@@ -43,13 +43,13 @@ export async function checkPhpEnvironment(): Promise<void> {
             if (match && match[1]) {
                 const major = parseInt(match[1], 10);
                 const minor = match[2] ? parseInt(match[2], 10) : 0;
-                if (major < 7 || (major === 7 && minor < 4)) {
+                if (major < 8) {
                     reject(
                         createGeneratorError({
                             code: "ERR_PHP_VERSION_UNSUPPORTED",
                             title: "Unsupported PHP Version",
-                            details: `Unsupported PHP version detected (PHP ${major}.${minor}). Moodle schema extraction requires PHP 7.4 or higher.`,
-                            action: "Upgrade your PHP CLI installation to PHP 7.4 or higher.",
+                            details: `Unsupported PHP version detected (PHP ${major}.${minor}). Moodle schema extraction requires PHP 8.0 or higher.`,
+                            action: "Upgrade your PHP CLI installation to PHP 8.0 or higher.",
                         })
                     );
                     return;

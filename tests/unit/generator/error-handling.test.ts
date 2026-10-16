@@ -261,11 +261,35 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
                 const genErr = err as MoodleGeneratorError;
                 expect(genErr.code).toBe("ERR_PHP_NOT_FOUND");
                 expect(genErr.title).toBe("PHP CLI Not Found");
-                expect(genErr.action).toContain("Install PHP 7.4 or higher");
+                expect(genErr.action).toContain("Install PHP 8.0 or higher");
             }
         });
 
-        it("should throw ERR_PHP_VERSION_UNSUPPORTED when PHP version is < 7.4", async () => {
+        it("should reject PHP 7.4 because the extraction sandbox requires PHP 8 functions", async () => {
+            vi.spyOn(child_process, "exec").mockImplementation(((
+                _cmd: string,
+                callback: (error: Error | null, stdout: string, stderr: string) => void
+            ) => {
+                callback(null, "PHP 7.4.33 (cli) (built: ...)", "");
+                return {} as child_process.ChildProcess;
+            }) as any);
+
+            await expect(checkPhpEnvironment()).rejects.toMatchObject({ code: "ERR_PHP_VERSION_UNSUPPORTED" });
+        });
+
+        it("should accept PHP 8.0", async () => {
+            vi.spyOn(child_process, "exec").mockImplementation(((
+                _cmd: string,
+                callback: (error: Error | null, stdout: string, stderr: string) => void
+            ) => {
+                callback(null, "PHP 8.0.30 (cli) (built: ...)", "");
+                return {} as child_process.ChildProcess;
+            }) as any);
+
+            await expect(checkPhpEnvironment()).resolves.toBeUndefined();
+        });
+
+        it("should throw ERR_PHP_VERSION_UNSUPPORTED when PHP version is < 8.0", async () => {
             vi.spyOn(child_process, "exec").mockImplementation(((
                 _cmd: string,
                 callback: (error: Error | null, stdout: string, stderr: string) => void

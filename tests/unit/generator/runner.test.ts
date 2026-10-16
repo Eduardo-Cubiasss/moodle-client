@@ -209,6 +209,47 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
         expect(await fs.access(syncedIndex).then(() => true).catch(() => false)).toBe(true);
     });
 
+    it("should strip the direct MoodleClient augmentation left in outDir caches by moodle-client-schemas < 0.2.8", async () => {
+        const outDir = path.join(tempDir, "schemas/local/legacy");
+        await fs.mkdir(path.join(outDir, "core/course"), { recursive: true });
+        await fs.writeFile(
+            path.join(outDir, "core/course/get_courses.webservice.d.ts"),
+            "export interface CoreCourseGetCoursesParams {}\nexport type CoreCourseGetCoursesReturns = unknown;\n",
+            "utf-8"
+        );
+        await fs.writeFile(
+            path.join(outDir, "index.d.ts"),
+            'export interface GeneratedMoodleServices {\n}\n\ndeclare module "@didactika/moodle-client" {\n    interface MoodleClient extends GeneratedMoodleServices {}\n}\n',
+            "utf-8"
+        );
+
+        vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue([
+            {
+                namespace: "legacy",
+                source: { type: "local", path: path.join(tempDir, "local-moodle") },
+                webservices: ["*"],
+                outDir: "./schemas/local",
+            },
+        ]);
+
+        const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+        await fs.mkdir(path.join(nodeModulesDir, "dist"), { recursive: true });
+        await fs.writeFile(path.join(nodeModulesDir, "package.json"), JSON.stringify({ name: "@didactika/moodle-client" }), "utf-8");
+        await fs.writeFile(path.join(nodeModulesDir, "dist/index.d.ts"), "// index\n", "utf-8");
+
+        const originalCwd = process.cwd();
+        try {
+            process.chdir(tempDir);
+            await runGenerator(undefined, { silent: true, force: false });
+        } finally {
+            process.chdir(originalCwd);
+        }
+
+        const synced = await fs.readFile(path.join(nodeModulesDir, "dist/schemas/legacy/index.d.ts"), "utf-8");
+        expect(synced).toContain("export interface GeneratedMoodleServices");
+        expect(synced).not.toContain("declare module");
+    });
+
     it("should bypass outDir cache and regenerate when force is true", async () => {
         const outDir = path.join(tempDir, "schemas/local/legacy");
         await fs.mkdir(outDir, { recursive: true });
