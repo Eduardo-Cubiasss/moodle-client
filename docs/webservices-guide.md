@@ -56,50 +56,67 @@ for (const course of courses) {
 
 When you need schemas for different Moodle versions, local plugin directories, or remote Git repositories, use the following CLI tools:
 
+Each command below starts a wizard when run without options, or runs in one line, without prompts, when you pass the values. The full list of options is in the [CLI Reference](cli.md).
+
 ### 2.1 Create Schema Configurations (`moodle-create-schemas`)
 
-Launches an interactive prompt to register new schema sources in your `package.json`:
+Registers a new schema source in your `package.json` and generates it:
 
 ```bash
-npx moodle-create-schemas
+npx moodle-create-schemas                    # wizard
+
+npx moodle-create-schemas --namespace customRepo \
+    --source.type moodle-repository \
+    --source.url https://gitlab.example.com/org/moodle.git --source.branch main \
+    --outDir src/schemas
 ```
 
-* **Namespace:** Identifier used on the client instance (`moodle.<namespace>.<function>`).
+* **Namespace:** Identifier used on the client instance (`moodle.<namespace>.<function>`). Letters, digits, `_` or `$`, not starting with a digit.
 * **Source:**
-  * `[1] Moodle Official (GitHub):` Official Moodle releases (e.g. `4.4`, `5.0`).
-  * `[2] Moodle Local (Directory):` Local filesystem path to a Moodle installation.
-  * `[3] Remote Repository (Configurable):` Remote Git repository URL (HTTPS/SSH) and branch.
+  * `moodle-official` (`[1] Moodle Official (GitHub)`): official Moodle releases (e.g. `4.4`, `5.0`).
+  * `moodle-local` (`[2] Moodle Local (Directory)`): local filesystem path to a Moodle installation.
+  * `moodle-repository` (`[3] Remote Repository (Configurable)`): remote Git repository URL (HTTPS/SSH) and branch.
 * **Webservices Pattern:** Filter function names (e.g. `*` for all, or `core_user_*`).
-* **Output Directory (`outDir`):** Mandatory for `Local` and `Remote Repository` (e.g. `src/schemas`).
-* **Transactional Rollback:** If initial schema generation fails (due to invalid Git credentials, inaccessible repository, or network timeout), the wizard automatically restores `package.json` to its previous state and cleans up any partial directories created in `outDir` and `dist/schemas`.
+* **Output Directory (`outDir`):** Mandatory for `moodle-local` and `moodle-repository` (e.g. `src/schemas`).
+* **Transactional Rollback:** If initial schema generation fails (due to invalid Git credentials, inaccessible repository, or network timeout), `package.json` is restored to its previous state and any partial directories created in `outDir` and `dist/schemas` are removed.
 
-### 2.2 Generate and Synchronize Schemas (`moodle-generate-schemas`)
+### 2.2 Update a Schema Configuration (`moodle-update-schemas`)
+
+Changes an existing namespace (branch, version, path, patterns, `outDir`…), saves it, and then synchronizes it, regenerating that namespace only:
+
+```bash
+npx moodle-update-schemas                    # wizard: each field starts with its current value
+
+npx moodle-update-schemas --namespace customRepo --source.branch release-2 --sync
+```
+
+* **Always synchronize.** Answer `y` to *Do you want to synchronize the schemas for customRepo?* in the wizard, or add `--sync`. Without it the change is only saved, and the generated types still describe the previous configuration.
+* **Safe:** if synchronization fails, the previous schemas are restored. The saved configuration stays, so you can fix the cause and run `npx moodle-generate-schemas --namespace customRepo`.
+
+### 2.3 Generate and Synchronize Schemas (`moodle-generate-schemas`)
 
 Reads configurations from `package.json`, extracts PHP service signatures, and compiles TypeScript `.d.ts` declaration files:
 
 ```bash
-npx moodle-generate-schemas
+npx moodle-generate-schemas                          # all namespaces
+npx moodle-generate-schemas --namespace customRepo   # regenerate one
+npx moodle-generate-schemas --force                  # regenerate all from scratch
 ```
 
 * **Smart Cache Skip:** When schemas already exist in `outDir`, generation is skipped and synchronized in ~0.2 seconds.
 * **Concurrency and Parallelism:** Processes up to 2 schemas concurrently (`p-limit(2)`) and extracts up to 8 PHP webservices in parallel per schema (`concurrency: 8`), with concurrent Git submodule synchronization (`p-limit(4)`).
-* **Force Regeneration (`--force`):**
-  ```bash
-  npx moodle-generate-schemas --force
-  ```
-  Bypasses cache, purges outdated schema files, and re-clones/re-extracts from scratch.
 
-### 2.3 Delete Schema Configurations (`moodle-delete-schemas`)
+### 2.4 Delete Schema Configurations (`moodle-delete-schemas`)
 
-Interactively removes a configured namespace:
+Removes a configured namespace and its generated files:
 
 ```bash
-npx moodle-delete-schemas
+npx moodle-delete-schemas                         # wizard
+npx moodle-delete-schemas --namespace customRepo
 ```
 
-* Select the namespace from a numbered menu.
 * Removes the configuration entry from `package.json` and deletes generated schema files.
-* Strictly preserves user files in `outDir`, prompting for confirmation if non-generator files exist.
+* Preserves files you wrote in `outDir`. The wizard asks before deleting them; in one-line mode pass `--purge` to delete them too.
 * Supports clean removal even if `outDir` was already deleted or is empty.
 
 ---
@@ -112,21 +129,13 @@ Configured schema sources are saved in the `"moodle-client"` array of your `pack
 {
   "name": "my-app",
   "dependencies": {
-    "@didactika/moodle-client": "^2.3.10"
+    "@didactika/moodle-client": "^2.2.0"
   },
   "moodle-client": [
     {
-      "namespace": "webservice",
-      "source": {
-        "type": "moodle",
-        "version": "4.5"
-      },
-      "webservices": ["*"]
-    },
-    {
       "namespace": "customRepo",
       "source": {
-        "type": "repository",
+        "type": "moodle-repository",
         "url": "https://gitlab.example.com/org/moodle.git",
         "branch": "main"
       },
@@ -136,7 +145,7 @@ Configured schema sources are saved in the `"moodle-client"` array of your `pack
     {
       "namespace": "localDev",
       "source": {
-        "type": "local",
+        "type": "moodle-local",
         "path": "../moodle-dev"
       },
       "webservices": ["local_myplugin_*"],
@@ -150,14 +159,14 @@ Configured schema sources are saved in the `"moodle-client"` array of your `pack
 
 | Property | Type | Description |
 | --- | --- | --- |
-| `namespace` | `string` | Unique identifier on client instance (`moodle.<namespace>`). |
-| `source.type` | `string` | `"moodle"` (or `"official"`), `"local"`, or `"repository"`. |
-| `source.version` | `string` | Moodle version string (required for `"moodle"`). |
-| `source.path` | `string` | Local directory path (required for `"local"`). |
-| `source.url` | `string` | Git clone URL (required for `"repository"`). |
-| `source.branch` | `string` | Git branch or tag (optional for `"repository"`, default: `"main"`). |
+| `namespace` | `string` | Unique identifier on client instance (`moodle.<namespace>`); a valid identifier such as `moodle50`, not `moodle5.0`. `webservice` is reserved for the bundled namespace. |
+| `source.type` | `string` | Exactly one of `"moodle-official"`, `"moodle-local"` or `"moodle-repository"`. |
+| `source.version` | `string` | Moodle version string (required for `"moodle-official"`). |
+| `source.path` | `string` | Local directory path (required for `"moodle-local"`). |
+| `source.url` | `string` | Git clone URL (required for `"moodle-repository"`). |
+| `source.branch` | `string` | Git branch or tag (optional for `"moodle-repository"`, default: `"main"`). |
 | `webservices` | `string[]` | Function matching patterns (e.g. `["*"]`). |
-| `outDir` | `string` | Project output directory (required for `local` and `repository`). |
+| `outDir` | `string` | Project output directory (required for `moodle-local` and `moodle-repository`). |
 
 ---
 
@@ -271,7 +280,7 @@ During interactive schema registration:
 ### 5.3 Concurrency Architecture
 
 - **Parallel schemas**: Up to 2 schemas processed simultaneously (`p-limit(2)`).
-- **Parallel PHP introspection**: Up to 8 processes per schema (`concurrency: 8`), configurable in `package.json`.
+- **Parallel PHP introspection**: Up to 8 isolated PHP processes per schema retry services after a crash or stall of the extraction batch (fixed at 8).
 - **Parallel Git submodules**: Up to 4 concurrent downloads (`p-limit(4)`).
 - **Master barrel**: Aggregated generation step runs at completion to merge all declarations into `index.d.ts`.
 

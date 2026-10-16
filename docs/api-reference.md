@@ -306,17 +306,15 @@ interface MoodleSchemaConfigEntry {
   source: MoodleSourceConfig;
   webservices: string[];
   outDir?: string;
-  concurrency?: number;
 }
 ```
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `namespace` | `string` | Unique namespace identifier accessed on `MoodleClient` (e.g. `moodle.<namespace>.*`). |
+| `namespace` | `string` | Unique namespace identifier accessed on `MoodleClient` (e.g. `moodle.<namespace>.*`). Must be a valid identifier: letters, digits, `_` or `$`, not starting with a digit. `webservice` is reserved for the bundled namespace. |
 | `source` | `MoodleSourceConfig` | Origin of the Moodle codebase for PHP reflection extraction. |
 | `webservices` | `string[]` | Wildcard patterns or exact function names to include (e.g. `["*"]`, `["core_*"]`). |
-| `outDir` | `string` | Output folder in your project where `.webservice.d.ts` files are written. Required for `"local"` and `"repository"`, optional for `"moodle"`. |
-| `concurrency` | `number` | Concurrency limit for PHP schema extraction workers (default: `8`). |
+| `outDir` | `string` | Output folder in your project where `.webservice.d.ts` files are written. Required for `"moodle-local"` and `"moodle-repository"`, optional for `"moodle-official"`. |
 
 ### `MoodleSourceConfig`
 
@@ -327,58 +325,44 @@ type MoodleSourceConfig =
   | MoodleLocalSource;
 
 interface MoodleOfficialSource {
-  type: "moodle" | "moodle-official" | "official";
+  type: "moodle-official";
   version: string; // e.g. "4.5", "4.4"
 }
 
 interface MoodleRepositorySource {
-  type: "repository" | "moodle-repository" | "remote" | "git";
+  type: "moodle-repository";
   url: string;     // e.g. "https://github.com/my-org/moodle.git"
   branch?: string; // Git branch or tag (defaults to "main")
 }
 
 interface MoodleLocalSource {
-  type: "local" | "moodle-local";
+  type: "moodle-local";
   path: string;    // Filesystem path to Moodle installation root containing version.php
 }
 ```
+
+These are the only accepted values of `type`. The short names used by pre-release builds (`moodle`, `official`, `repository`, `remote`, `git`, `local`) are rejected with `ERR_CONFIG_INVALID_SOURCE_TYPE`, which names the replacement. See [Source types](cli.md#source-types).
 
 ---
 
 ## CLI Tools Reference
 
-Three CLI executables manage the custom schema lifecycle:
+Four CLI executables manage the custom schema lifecycle. `create`, `update` and `delete` run as a wizard without options, or in one line with them:
 
-### `npx moodle-create-schemas`
+| Command | Purpose |
+| --- | --- |
+| `npx moodle-create-schemas` | Add a namespace and generate it (rollback on failure). |
+| `npx moodle-update-schemas` | Change a namespace, save it, then synchronize it (`--sync`, recommended). |
+| `npx moodle-delete-schemas` | Remove a namespace and its generated files (`--purge` also removes your files there). |
+| `npx moodle-generate-schemas` | Generate all namespaces; `--namespace <name>` regenerates one, `--force` all. |
 
-Interactive wizard that configures a new schema source:
-- Prompts for `namespace`, source type (**Official**, **Local**, or **Repository**), function patterns, and mandatory `outDir`.
-- Appends the configuration entry into `"moodle-client"` in `package.json`.
-- Runs generation immediately to create `.webservice.d.ts` files and update module augmentation.
-- **Transactional Rollback**: If initial generation fails (e.g. invalid credentials or network error), automatically rolls back `package.json` to its previous state and cleans up any empty/partial directories.
-
-### `npx moodle-generate-schemas`
-
-Compiles TypeScript declarations for all entries in `package.json`:
-- **Smart cache**: If schemas exist in `outDir`, synchronizes in milliseconds (~0.2s) without re-downloading.
-- **Extraction & Concurrency**: Downloads official releases, shallow-clones Git repositories (with concurrent submodule synchronization, `p-limit(4)`), or reads local folders. Processes up to 2 schemas concurrently (`p-limit(2)`) and extracts signatures with 8 parallel worker processes per schema (`concurrency: 8`).
-- **Barrels**: Produces `index.d.ts` with module augmentation to expose each namespace on `MoodleClient`.
-- **CLI Flags**:
-  - `--force` (`-f`): Bypasses cache, purges existing files, and executes a clean download/clone and extraction.
-  - `--config <path>`: Specifies a custom configuration JSON file path instead of `package.json`.
-
-### `npx moodle-delete-schemas`
-
-Interactive wizard to remove a schema namespace:
-- Displays a numbered list of configured namespaces.
-- Removes the chosen entry from `package.json`.
-- Selectively deletes generated `.webservice.d.ts` files and barrels from `outDir` and the package, while safely preserving custom user code.
-- Prunes empty output directories and supports removing entries even if `outDir` was already cleaned up.
+Every option, with examples: [CLI Reference](cli.md).
 
 ---
 
 ## Related Documentation
 
 - [Getting Started](getting-started.md) — Initial setup, Moodle configuration, and first call.
+- [CLI Reference](cli.md) — Every command and option of the schema generator CLIs.
 - [Web Services Guide](webservices-guide.md) — Comprehensive guide on namespaces, CLI tools, and code patterns.
 - [Error Handling](errors.md) — Error classes, status codes, and debugging with `debugInfo`.
