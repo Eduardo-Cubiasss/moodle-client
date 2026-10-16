@@ -1,17 +1,47 @@
 import type { MoodleGeneratorErrorCode } from "@didactika/moodle-client-schemas";
 
+/**
+ * Namespace of the Moodle 4.5 web services bundled with the package. It is part of the library,
+ * not of the user's configuration: it cannot be declared, updated, regenerated or deleted.
+ */
+export const BUNDLED_NAMESPACE = "webservice";
+
+/**
+ * Moodle version of the bundled namespace. To update it, change this value and run
+ * `npm run schemas:bundle` in this repository (a development-only script, not published).
+ */
+export const BUNDLED_MOODLE_VERSION = "4.5";
+
+/** The only accepted values of `source.type`. */
+export const SOURCE_TYPES = ["moodle-official", "moodle-repository", "moodle-local"] as const;
+
+export type SourceType = (typeof SOURCE_TYPES)[number];
+
+/**
+ * Short source type names used by pre-release builds, mapped to their replacement.
+ * They are no longer accepted; the map only feeds the error message that names the fix.
+ */
+export const LEGACY_SOURCE_TYPES: Readonly<Record<string, SourceType>> = {
+    moodle: "moodle-official",
+    official: "moodle-official",
+    repository: "moodle-repository",
+    remote: "moodle-repository",
+    git: "moodle-repository",
+    local: "moodle-local",
+};
+
 export interface MoodleLocalSource {
-    type: "local" | "moodle-local";
+    type: "moodle-local";
     path: string;
 }
 
 export interface MoodleOfficialSource {
-    type: "moodle" | "moodle-official" | "official";
+    type: "moodle-official";
     version: string;
 }
 
 export interface MoodleRepositorySource {
-    type: "moodle-repository" | "repository" | "remote" | "git";
+    type: "moodle-repository";
     url: string;
     branch?: string;
 }
@@ -21,36 +51,37 @@ export type MoodleSourceConfig =
     | MoodleOfficialSource
     | MoodleRepositorySource;
 
+function sourceTypeOf(source: unknown): unknown {
+    if (!source || typeof source !== "object") return undefined;
+    return (source as { type?: unknown }).type;
+}
+
 /**
  * Type guard for official Moodle release sources.
  */
 export function isOfficialSource(source: unknown): source is MoodleOfficialSource {
-    if (!source || typeof source !== "object") return false;
-    const type = (source as { type?: unknown }).type;
-    return type === "moodle" || type === "moodle-official" || type === "official";
+    return sourceTypeOf(source) === "moodle-official";
 }
 
 /**
  * Type guard for local directory sources.
  */
 export function isLocalSource(source: unknown): source is MoodleLocalSource {
-    if (!source || typeof source !== "object") return false;
-    const type = (source as { type?: unknown }).type;
-    return type === "local" || type === "moodle-local";
+    return sourceTypeOf(source) === "moodle-local";
 }
 
 /**
  * Type guard for remote Git repository sources.
  */
 export function isRepositorySource(source: unknown): source is MoodleRepositorySource {
-    if (!source || typeof source !== "object") return false;
-    const type = (source as { type?: unknown }).type;
-    return (
-        type === "repository" ||
-        type === "moodle-repository" ||
-        type === "remote" ||
-        type === "git"
-    );
+    return sourceTypeOf(source) === "moodle-repository";
+}
+
+/**
+ * Checks whether a value is one of the accepted source types.
+ */
+export function isSourceType(value: unknown): value is SourceType {
+    return typeof value === "string" && (SOURCE_TYPES as readonly string[]).includes(value);
 }
 
 /**
@@ -71,7 +102,14 @@ export type ExtendedGeneratorErrorCode =
     | "ERR_OUTPUT_DIRECTORY_EMPTY"
     | "ERR_CONFIG_INACCESSIBLE_PATH"
     | "ERR_REPOSITORY_NOT_FOUND"
-    | "ERR_REPOSITORY_AUTH_FAILED";
+    | "ERR_REPOSITORY_AUTH_FAILED"
+    | "ERR_CONFIG_INVALID_NAMESPACE"
+    | "ERR_CONFIG_RESERVED_NAMESPACE"
+    | "ERR_NAMESPACE_NOT_FOUND"
+    | "ERR_CLI_UNKNOWN_OPTION"
+    | "ERR_CLI_MISSING_OPTION"
+    | "ERR_CLI_INVALID_OPTION"
+    | "ERR_SYNC_FAILED";
 
 export interface ExtendedGeneratorErrorOptions {
     code: ExtendedGeneratorErrorCode;
@@ -93,8 +131,6 @@ export interface MoodleSchemaConfigEntry {
     webservices: string[];
     /** Output directory path. Required for local and repository sources, optional for official */
     outDir?: string;
-    /** Concurrency limit for schema extraction */
-    concurrency?: number;
 }
 
 /**
@@ -105,24 +141,4 @@ export interface PackageJsonWithMoodleClient {
     version?: string;
     "moodle-client"?: MoodleSchemaConfigEntry[];
     [key: string]: unknown;
-}
-
-/**
- * Backward compatibility interface for single configuration.
- */
-export interface MoodleClientConfig {
-    version: string;
-    webservices: string[];
-    outDir?: string;
-    moodlePath?: string;
-    concurrency?: number;
-    isLocal: boolean;
-}
-
-export interface RawMoodleClientConfig {
-    version?: string;
-    webservices?: string[];
-    moodlePath?: string;
-    concurrency?: number;
-    outDir?: string;
 }

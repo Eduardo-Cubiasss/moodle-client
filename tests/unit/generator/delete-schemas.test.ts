@@ -4,6 +4,7 @@ import path from "path";
 import os from "os";
 import {
     promptDeleteSchemas,
+    deleteSchemasFromOptions,
     validateDeleteOption,
 } from "../../../src/generator/ui/delete-schemas";
 
@@ -56,12 +57,12 @@ describe("moodle-delete-schemas unit tests", () => {
                 "moodle-client": [
                     {
                         namespace: "moodle5.0",
-                        source: { type: "moodle", version: "5.0" },
+                        source: { type: "moodle-official", version: "5.0" },
                         webservices: ["*"],
                     },
                     {
                         namespace: "moodleLegacy",
-                        source: { type: "local", path: "/path/to/moodle" },
+                        source: { type: "moodle-local", path: "/path/to/moodle" },
                         webservices: ["core_user_*"],
                         outDir: "src/moodleLegacySchemas",
                     },
@@ -98,7 +99,7 @@ describe("moodle-delete-schemas unit tests", () => {
                 "moodle-client": [
                     {
                         namespace: "moodleLegacy",
-                        source: { type: "local", path: "/path/to/moodle" },
+                        source: { type: "moodle-local", path: "/path/to/moodle" },
                         webservices: ["core_user_*"],
                         outDir: "src/moodleLegacySchemas",
                     },
@@ -133,7 +134,7 @@ describe("moodle-delete-schemas unit tests", () => {
                 "moodle-client": [
                     {
                         namespace: "moodleLegacy",
-                        source: { type: "local", path: "/path/to/moodle" },
+                        source: { type: "moodle-local", path: "/path/to/moodle" },
                         webservices: ["core_user_*"],
                         outDir: "src/moodleLegacySchemas",
                     },
@@ -165,7 +166,7 @@ describe("moodle-delete-schemas unit tests", () => {
                 "moodle-client": [
                     {
                         namespace: "moodleLegacy",
-                        source: { type: "local", path: "/path/to/moodle" },
+                        source: { type: "moodle-local", path: "/path/to/moodle" },
                         webservices: ["core_user_*"],
                         outDir: "src/moodleLegacySchemas",
                     },
@@ -198,7 +199,7 @@ describe("moodle-delete-schemas unit tests", () => {
                 "moodle-client": [
                     {
                         namespace: "moodleLegacy",
-                        source: { type: "local", path: "/path/to/moodle" },
+                        source: { type: "moodle-local", path: "/path/to/moodle" },
                         webservices: ["core_user_*"],
                         outDir: "src/moodleLegacySchemas",
                     },
@@ -250,7 +251,7 @@ describe("moodle-delete-schemas unit tests", () => {
                 "moodle-client": [
                     {
                         namespace: "moodleLegacy",
-                        source: { type: "local", path: "/path/to/moodle" },
+                        source: { type: "moodle-local", path: "/path/to/moodle" },
                         webservices: ["core_user_*"],
                         outDir: "src/moodleLegacySchemas",
                     },
@@ -279,7 +280,7 @@ describe("moodle-delete-schemas unit tests", () => {
                 "moodle-client": [
                     {
                         namespace: "moodle5.0",
-                        source: { type: "moodle", version: "5.0" },
+                        source: { type: "moodle-official", version: "5.0" },
                         webservices: ["*"],
                     },
                 ],
@@ -295,6 +296,75 @@ describe("moodle-delete-schemas unit tests", () => {
             });
 
             expect(result.deleted).toBe(true);
+        });
+    });
+    describe("One-line mode (deleteSchemasFromOptions)", () => {
+        const pkgWithLocal = (outDir: string) => ({
+            name: "my-app",
+            "moodle-client": [
+                { namespace: "keepMe", source: { type: "moodle-official", version: "4.5" }, webservices: ["*"] },
+                { namespace: "localDev", source: { type: "moodle-local", path: "." }, webservices: ["*"], outDir },
+            ],
+        });
+
+        it("should delete the named namespace, its generated files and its entry", async () => {
+            await fs.writeFile(pkgJsonPath, JSON.stringify(pkgWithLocal("schemas"), null, 2), "utf-8");
+            const nsDir = path.join(tempDir, "schemas/localDev/core/user");
+            await fs.mkdir(nsDir, { recursive: true });
+            await fs.writeFile(path.join(nsDir, "get_users.webservice.d.ts"), "export interface X {}\n", "utf-8");
+
+            const result = await deleteSchemasFromOptions({ pkgPath: pkgJsonPath, namespace: "localDev" });
+
+            expect(result).toEqual({ deleted: true, deletedNamespace: "localDev" });
+            const pkg = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"));
+            expect(pkg["moodle-client"].map((c: { namespace: string }) => c.namespace)).toEqual(["keepMe"]);
+            expect(await fs.access(path.join(tempDir, "schemas/localDev")).then(() => true).catch(() => false)).toBe(false);
+        });
+
+        it("should keep files moodle-client did not generate unless --purge is given", async () => {
+            await fs.writeFile(pkgJsonPath, JSON.stringify(pkgWithLocal("schemas"), null, 2), "utf-8");
+            const nsDir = path.join(tempDir, "schemas/localDev");
+            await fs.mkdir(nsDir, { recursive: true });
+            await fs.writeFile(path.join(nsDir, "notes.md"), "mine", "utf-8");
+
+            await deleteSchemasFromOptions({ pkgPath: pkgJsonPath, namespace: "localDev" });
+            expect(await fs.readFile(path.join(nsDir, "notes.md"), "utf-8")).toBe("mine");
+
+            await fs.writeFile(pkgJsonPath, JSON.stringify(pkgWithLocal("schemas"), null, 2), "utf-8");
+            await deleteSchemasFromOptions({ pkgPath: pkgJsonPath, namespace: "localDev", purge: true });
+            expect(await fs.access(nsDir).then(() => true).catch(() => false)).toBe(false);
+        });
+
+        it("should only remove a stale 'webservice' entry from package.json, never the bundled files", async () => {
+            await fs.writeFile(
+                pkgJsonPath,
+                JSON.stringify({ name: "my-app", "moodle-client": [{ namespace: "webservice", source: { type: "moodle-official", version: "4.5" }, webservices: ["core_user_*"] }] }, null, 2),
+                "utf-8"
+            );
+            const bundledDir = path.join(tempDir, "node_modules/@didactika/moodle-client/dist/schemas/webservice");
+            await fs.mkdir(bundledDir, { recursive: true });
+            await fs.writeFile(path.join(bundledDir, "index.d.ts"), "export interface GeneratedMoodleServices {}\n", "utf-8");
+
+            const result = await deleteSchemasFromOptions({ pkgPath: pkgJsonPath, namespace: "webservice" });
+
+            expect(result).toEqual({ deleted: true, deletedNamespace: "webservice" });
+            expect(JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"))["moodle-client"]).toEqual([]);
+            expect(await fs.readFile(path.join(bundledDir, "index.d.ts"), "utf-8")).toContain("GeneratedMoodleServices");
+        });
+
+        it("should refuse to delete the bundled namespace when no entry declares it", async () => {
+            await fs.writeFile(pkgJsonPath, JSON.stringify(pkgWithLocal("schemas"), null, 2), "utf-8");
+            await expect(deleteSchemasFromOptions({ pkgPath: pkgJsonPath, namespace: "webservice" })).rejects.toMatchObject({
+                code: "ERR_CONFIG_RESERVED_NAMESPACE",
+            });
+        });
+
+        it("should fail with ERR_NAMESPACE_NOT_FOUND listing the configured namespaces", async () => {
+            await fs.writeFile(pkgJsonPath, JSON.stringify(pkgWithLocal("schemas"), null, 2), "utf-8");
+            await expect(deleteSchemasFromOptions({ pkgPath: pkgJsonPath, namespace: "nope" })).rejects.toMatchObject({
+                code: "ERR_NAMESPACE_NOT_FOUND",
+                details: expect.stringContaining("Configured namespaces: 'keepMe', 'localDev'"),
+            });
         });
     });
 });

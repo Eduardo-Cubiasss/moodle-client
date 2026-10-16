@@ -110,7 +110,7 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
                 "moodle-client": [
                     {
                         namespace: "localDev",
-                        source: { type: "local", path: "./moodle" },
+                        source: { type: "moodle-local", path: "./moodle" },
                         webservices: ["*"],
                     },
                 ],
@@ -134,7 +134,7 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
                 "moodle-client": [
                     {
                         namespace: "customRepo",
-                        source: { type: "repository", url: "https://github.com/my-org/moodle.git" },
+                        source: { type: "moodle-repository", url: "https://github.com/my-org/moodle.git" },
                         webservices: ["*"],
                     },
                 ],
@@ -158,7 +158,7 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
                 "moodle-client": [
                     {
                         namespace: "legacy19",
-                        source: { type: "moodle", version: "1.9" },
+                        source: { type: "moodle-official", version: "1.9" },
                         webservices: ["*"],
                     },
                 ],
@@ -195,9 +195,45 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
             } catch (err: unknown) {
                 const genErr = err as MoodleGeneratorError;
                 expect(genErr.code).toBe("ERR_CONFIG_INVALID_SOURCE_TYPE");
-                expect(genErr.action).toContain("npx moodle-delete-schemas");
-                expect(genErr.action).toContain("npx moodle-create-schemas");
+                expect(genErr.details).toContain("'moodle-official', 'moodle-repository', 'moodle-local'");
+                expect(genErr.action).toContain("npx moodle-update-schemas --namespace badSource --source.type <type>");
             }
+        });
+
+        it.each([
+            ["moodle", "moodle-official"],
+            ["official", "moodle-official"],
+            ["repository", "moodle-repository"],
+            ["remote", "moodle-repository"],
+            ["git", "moodle-repository"],
+            ["local", "moodle-local"],
+        ])("should reject the legacy source type '%s' and name '%s' as its replacement", async (legacy, replacement) => {
+            const pkg = {
+                name: "test-app",
+                "moodle-client": [
+                    { namespace: "legacySource", source: { type: legacy, version: "4.5", url: "https://x/y.git", path: "." }, webservices: ["*"], outDir: "out" },
+                ],
+            };
+            await fs.writeFile(pkgJsonPath, JSON.stringify(pkg, null, 2), "utf-8");
+
+            const err = (await loadPackageConfig(pkgJsonPath).catch((e: unknown) => e)) as MoodleGeneratorError;
+            expect(err.code).toBe("ERR_CONFIG_INVALID_SOURCE_TYPE");
+            expect(err.details).toContain(`'${legacy}', which is no longer supported. Use '${replacement}' instead.`);
+            expect(err.action).toContain("npx moodle-update-schemas --namespace legacySource");
+        });
+
+        it("should reject a namespace that is not a valid identifier", async () => {
+            const pkg = {
+                name: "test-app",
+                "moodle-client": [
+                    { namespace: "local4.5", source: { type: "moodle-official", version: "4.5" }, webservices: ["*"] },
+                ],
+            };
+            await fs.writeFile(pkgJsonPath, JSON.stringify(pkg, null, 2), "utf-8");
+
+            const err = (await loadPackageConfig(pkgJsonPath).catch((e: unknown) => e)) as MoodleGeneratorError;
+            expect(err.code).toBe("ERR_CONFIG_INVALID_NAMESPACE");
+            expect(err.details).toContain("must be a valid identifier");
         });
     });
 
@@ -211,7 +247,7 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
                 "moodle-client": [
                     {
                         namespace: "mySchemas",
-                        source: { type: "local", path: "./moodle" },
+                        source: { type: "moodle-local", path: "./moodle" },
                         webservices: ["*"],
                         outDir: "empty-schemas",
                     },

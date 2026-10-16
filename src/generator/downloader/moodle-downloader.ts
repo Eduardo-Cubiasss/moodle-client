@@ -244,7 +244,7 @@ export async function cloneMoodleVersion(version: string, targetPath: string): P
                 title: "Network Disconnected",
                 details:
                     "Failed to reach GitHub to download Moodle repository archive (DNS resolution failed or connection refused).",
-                action: "Check your internet connection, proxy settings, or configure a local Moodle instance via 'moodlePath' in moodle-client.config.json.",
+                action: "Check your internet connection, proxy settings, or use a local Moodle checkout with a 'moodle-local' source in the 'moodle-client' config of package.json.",
                 cause: gitErr,
             });
         }

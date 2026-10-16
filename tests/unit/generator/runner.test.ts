@@ -5,7 +5,7 @@ import os from "os";
 import * as configManager from "../../../src/generator/config/config-manager";
 import * as downloader from "../../../src/generator/downloader/moodle-downloader";
 import { extractWebservice } from "@didactika/moodle-client-schemas";
-import { runGenerator } from "../../../src/generator/runner";
+import { runGenerator, generateMasterBarrel } from "../../../src/generator/runner";
 
 vi.mock("@didactika/moodle-client-schemas", async (importOriginal) => {
     const actual = await importOriginal<typeof import("@didactika/moodle-client-schemas")>();
@@ -41,7 +41,7 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
             {
                 namespace: "legacy",
                 source: {
-                    type: "local",
+                    type: "moodle-local",
                     path: path.join(tempDir, "local-moodle"),
                 },
                 webservices: ["core_course_*"],
@@ -50,7 +50,7 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
             {
                 namespace: "default",
                 source: {
-                    type: "moodle",
+                    type: "moodle-official",
                     version: "4.4",
                 },
                 webservices: ["core_user_*"],
@@ -175,7 +175,7 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
             {
                 namespace: "legacy",
                 source: {
-                    type: "local",
+                    type: "moodle-local",
                     path: path.join(tempDir, "local-moodle"),
                 },
                 webservices: ["*"],
@@ -226,7 +226,7 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
         vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue([
             {
                 namespace: "legacy",
-                source: { type: "local", path: path.join(tempDir, "local-moodle") },
+                source: { type: "moodle-local", path: path.join(tempDir, "local-moodle") },
                 webservices: ["*"],
                 outDir: "./schemas/local",
             },
@@ -250,6 +250,151 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
         expect(synced).not.toContain("declare module");
     });
 
+    describe("invalid entries of other namespaces", () => {
+        const writeConfig = async (entries: unknown[]) => {
+            const pkgPath = path.join(tempDir, "package.json");
+            await fs.writeFile(pkgPath, JSON.stringify({ name: "app", "moodle-client": entries }, null, 2), "utf-8");
+            return pkgPath;
+        };
+        const valid = () => ({ namespace: "good", source: { type: "moodle-local", path: path.join(tempDir, "local-moodle") }, webservices: ["*"], outDir: "./schemas/local" });
+        const legacy = { namespace: "old", source: { type: "repository", url: "https://a/b.git" }, webservices: ["*"], outDir: "./schemas/local" };
+
+        it("should fail a full run on any invalid entry", async () => {
+            const pkgPath = await writeConfig([valid(), legacy]);
+            await expect(runGenerator(pkgPath, { silent: true })).rejects.toMatchObject({ code: "ERR_CONFIG_INVALID_SOURCE_TYPE" });
+        });
+
+        it("should skip them in a targeted run, keeping their installed schemas, and process the target", async () => {
+            const pkgPath = await writeConfig([valid(), legacy]);
+            vi.mocked(extractWebservice).mockResolvedValue({ schemas: [], errors: [] });
+            const loadSpy = vi.spyOn(configManager, "loadPackageConfig");
+
+            const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+            const oldDist = path.join(nodeModulesDir, "dist/schemas/old/core/user");
+            await fs.mkdir(oldDist, { recursive: true });
+            await fs.writeFile(path.join(oldDist, "get_users.webservice.d.ts"), "export interface Kept {}\n", "utf-8");
+            await fs.writeFile(path.join(nodeModulesDir, "dist/schemas/old/index.d.ts"), "export interface GeneratedMoodleServices {}\n", "utf-8");
+            await fs.writeFile(path.join(nodeModulesDir, "package.json"), JSON.stringify({ name: "@didactika/moodle-client" }), "utf-8");
+            await fs.mkdir(path.join(tempDir, "local-moodle"), { recursive: true });
+            await fs.writeFile(path.join(tempDir, "local-moodle/version.php"), "<?php\n", "utf-8");
+
+            const originalCwd = process.cwd();
+            let result;
+            try {
+                process.chdir(tempDir);
+                result = await runGenerator(pkgPath, { silent: true, forceNamespaces: ["good"] });
+            } finally {
+                process.chdir(originalCwd);
+            }
+
+            expect(loadSpy).not.toHaveBeenCalled();
+            expect(result.skipped).toEqual([{ namespace: "old", reason: expect.stringContaining("Use 'moodle-repository' instead") }]);
+            expect(await fs.readFile(path.join(oldDist, "get_users.webservice.d.ts"), "utf-8")).toBe("export interface Kept {}\n");
+            const master = await fs.readFile(path.join(nodeModulesDir, "dist/schemas/index.d.ts"), "utf-8");
+            expect(master).toContain("good:");
+            expect(master).toContain("old:");
+        });
+
+        it("should still fail when the targeted namespace itself is invalid", async () => {
+            const pkgPath = await writeConfig([valid(), legacy]);
+            await expect(runGenerator(pkgPath, { silent: true, forceNamespaces: ["old"] })).rejects.toMatchObject({
+                code: "ERR_CONFIG_INVALID_SOURCE_TYPE",
+            });
+        });
+    });
+
+    describe("bundled namespace", () => {
+        async function setupPackage(): Promise<string> {
+            const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+            const bundledDir = path.join(nodeModulesDir, "dist/schemas/webservice/core/user");
+            await fs.mkdir(bundledDir, { recursive: true });
+            await fs.writeFile(path.join(bundledDir, "get_users.webservice.d.ts"), "export interface Bundled {}\n", "utf-8");
+            await fs.writeFile(path.join(nodeModulesDir, "dist/schemas/webservice/index.d.ts"), "export interface GeneratedMoodleServices {}\n", "utf-8");
+            await fs.writeFile(path.join(nodeModulesDir, "package.json"), JSON.stringify({ name: "@didactika/moodle-client" }), "utf-8");
+            return nodeModulesDir;
+        }
+
+        it("should keep the bundled schemas and expose them in the master barrel with no configuration", async () => {
+            const nodeModulesDir = await setupPackage();
+            const pkgPath = path.join(tempDir, "package.json");
+            await fs.writeFile(pkgPath, JSON.stringify({ name: "app" }), "utf-8");
+
+            const originalCwd = process.cwd();
+            try {
+                process.chdir(tempDir);
+                await runGenerator(pkgPath, { silent: true });
+            } finally {
+                process.chdir(originalCwd);
+            }
+
+            expect(await fs.readFile(path.join(nodeModulesDir, "dist/schemas/webservice/core/user/get_users.webservice.d.ts"), "utf-8")).toBe("export interface Bundled {}\n");
+            const master = await fs.readFile(path.join(nodeModulesDir, "dist/schemas/index.d.ts"), "utf-8");
+            expect(master).toContain("webservice: WebserviceGeneratedServices;");
+            expect(master).toContain("Source: bundled with @didactika/moodle-client (Moodle 4.5)");
+            expect(extractWebservice).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ["a full run", undefined],
+            ["a run targeting another namespace", ["good"]],
+        ])("should fail %s when package.json declares 'webservice', recommending its removal", async (_label, forceNamespaces) => {
+            const pkgPath = path.join(tempDir, "package.json");
+            await fs.writeFile(
+                pkgPath,
+                JSON.stringify({
+                    name: "app",
+                    "moodle-client": [
+                        { namespace: "good", source: { type: "moodle-local", path: tempDir }, webservices: ["*"], outDir: "./out" },
+                        { namespace: "webservice", source: { type: "moodle-official", version: "4.5" }, webservices: ["*"] },
+                    ],
+                }),
+                "utf-8"
+            );
+            await expect(runGenerator(pkgPath, { silent: true, forceNamespaces })).rejects.toMatchObject({
+                code: "ERR_CONFIG_RESERVED_NAMESPACE",
+                action: expect.stringContaining("Remove the 'webservice' entry"),
+            });
+            expect(extractWebservice).not.toHaveBeenCalled();
+        });
+
+        it("should refuse to regenerate the bundled namespace", async () => {
+            await expect(runGenerator(undefined, { silent: true, forceNamespaces: ["webservice"] })).rejects.toMatchObject({
+                code: "ERR_CONFIG_RESERVED_NAMESPACE",
+            });
+        });
+
+        it("should give each outDir a barrel with only the namespaces that live in it", async () => {
+            const nodeModulesDir = await setupPackage();
+            vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue([
+                { namespace: "inA", source: { type: "moodle-official", version: "4.5" }, webservices: ["*"], outDir: "./a" },
+                { namespace: "inB", source: { type: "moodle-official", version: "4.5" }, webservices: ["*"], outDir: "./b" },
+            ]);
+            await generateMasterBarrel(path.join(nodeModulesDir, "dist/schemas"), await configManager.loadPackageConfig(), nodeModulesDir, tempDir);
+
+            const barrelA = await fs.readFile(path.join(tempDir, "a/index.d.ts"), "utf-8");
+            expect(barrelA).toContain('from "./inA/index"');
+            expect(barrelA).not.toContain("inB");
+            expect(barrelA).not.toContain("webservice");
+            const master = await fs.readFile(path.join(nodeModulesDir, "dist/schemas/index.d.ts"), "utf-8");
+            expect(master).toContain("webservice:");
+            expect(master).toContain("inA:");
+            expect(master).toContain("inB:");
+        });
+    });
+
+    it("should fail with ERR_NAMESPACE_NOT_FOUND when --namespace names an unconfigured namespace", async () => {
+        vi.spyOn(configManager, "loadPackageConfigDetailed").mockResolvedValue({
+            configs: [{ namespace: "legacy", source: { type: "moodle-official", version: "4.5" }, webservices: ["*"] }],
+            invalid: [],
+        });
+
+        await expect(runGenerator(undefined, { silent: true, forceNamespaces: ["legacy", "ghost"] })).rejects.toMatchObject({
+            code: "ERR_NAMESPACE_NOT_FOUND",
+            details: expect.stringContaining("Namespace 'ghost' is not configured"),
+        });
+        expect(extractWebservice).not.toHaveBeenCalled();
+    });
+
     it("should bypass outDir cache and regenerate when force is true", async () => {
         const outDir = path.join(tempDir, "schemas/local/legacy");
         await fs.mkdir(outDir, { recursive: true });
@@ -259,7 +404,7 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
             {
                 namespace: "legacy",
                 source: {
-                    type: "local",
+                    type: "moodle-local",
                     path: path.join(tempDir, "local-moodle"),
                 },
                 webservices: ["core_course_*"],
@@ -313,7 +458,7 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
             {
                 namespace: "activeNs",
                 source: {
-                    type: "moodle",
+                    type: "moodle-official",
                     version: "4.4",
                 },
                 webservices: ["core_user_*"],
@@ -355,7 +500,7 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
             {
                 namespace: "myNs",
                 source: {
-                    type: "local",
+                    type: "moodle-local",
                     path: path.join(tempDir, "local-moodle"),
                 },
                 webservices: ["core_course_*"],
@@ -421,14 +566,14 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
             {
                 namespace: "cachedNs",
                 source: {
-                    type: "moodle",
+                    type: "moodle-official",
                     version: "4.4",
                 },
                 webservices: ["core_user_*"],
             },
         ];
 
-        vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue(fakeConfigs);
+        vi.spyOn(configManager, "loadPackageConfigDetailed").mockResolvedValue({ configs: fakeConfigs, invalid: [] });
         vi.spyOn(downloader, "cloneMoodleVersion").mockResolvedValue(path.join(tempDir, "cloned-moodle"));
         vi.spyOn(downloader, "cleanupMoodleDirectory").mockResolvedValue();
         vi.mocked(extractWebservice).mockResolvedValue({ schemas: [], errors: [] });

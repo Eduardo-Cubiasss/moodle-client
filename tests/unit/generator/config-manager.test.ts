@@ -42,7 +42,7 @@ describe("ConfigManager - package.json Configuration", () => {
                 {
                     namespace: "legacy",
                     source: {
-                        type: "local",
+                        type: "moodle-local",
                         path: "/var/www/moodle",
                     },
                     webservices: ["core_*"],
@@ -51,7 +51,7 @@ describe("ConfigManager - package.json Configuration", () => {
                 {
                     namespace: "default",
                     source: {
-                        type: "moodle",
+                        type: "moodle-official",
                         version: "4.4",
                     },
                     webservices: ["core_course_*", "mod_assign_*"],
@@ -65,13 +65,13 @@ describe("ConfigManager - package.json Configuration", () => {
         expect(configs).toHaveLength(2);
 
         expect(configs[0].namespace).toBe("legacy");
-        expect(configs[0].source.type).toBe("local");
+        expect(configs[0].source.type).toBe("moodle-local");
         expect((configs[0].source as any).path).toBe("/var/www/moodle");
         expect(configs[0].outDir).toBe("./schemas/local");
         expect(configs[0].webservices).toEqual(["core_*"]);
 
         expect(configs[1].namespace).toBe("default");
-        expect(configs[1].source.type).toBe("moodle");
+        expect(configs[1].source.type).toBe("moodle-official");
         expect((configs[1].source as any).version).toBe("4.4");
         expect(configs[1].outDir).toBe("./schemas/v4.4");
         expect(configs[1].webservices).toEqual(["core_course_*", "mod_assign_*"]);
@@ -84,7 +84,7 @@ describe("ConfigManager - package.json Configuration", () => {
                 {
                     namespace: "default",
                     source: {
-                        type: "moodle",
+                        type: "moodle-official",
                         version: "4.5",
                     },
                     webservices: ["*"],
@@ -105,7 +105,7 @@ describe("ConfigManager - package.json Configuration", () => {
                 {
                     namespace: "legacy",
                     source: {
-                        type: "local",
+                        type: "moodle-local",
                         path: "/var/www/moodle",
                     },
                     webservices: ["core_*"],
@@ -126,7 +126,7 @@ describe("ConfigManager - package.json Configuration", () => {
                 {
                     namespace: "default",
                     source: {
-                        type: "moodle",
+                        type: "moodle-official",
                         version: "4.5",
                     },
                     webservices: ["*"],
@@ -134,7 +134,7 @@ describe("ConfigManager - package.json Configuration", () => {
                 {
                     namespace: "default",
                     source: {
-                        type: "moodle",
+                        type: "moodle-official",
                         version: "4.4",
                     },
                     webservices: ["*"],
@@ -148,50 +148,53 @@ describe("ConfigManager - package.json Configuration", () => {
         );
     });
 
-    it("should auto-generate default configuration in package.json when moodle-client is missing", async () => {
+    it("should return no entries when moodle-client is missing, without writing package.json", async () => {
         const pkgContent = {
             name: "test-app",
             version: "1.0.0",
         };
-        await fs.writeFile(pkgJsonPath, JSON.stringify(pkgContent, null, 2), "utf-8");
+        const raw = JSON.stringify(pkgContent, null, 2);
+        await fs.writeFile(pkgJsonPath, raw, "utf-8");
 
-        const configs = await loadPackageConfig(pkgJsonPath);
-        expect(configs).toHaveLength(1);
-        expect(configs[0].namespace).toBe("webservice");
-        expect(configs[0].source.type).toBe("moodle");
-        expect((configs[0].source as any).version).toBe("4.5");
-        expect(configs[0].webservices).toEqual(["*"]);
-        expect(configs[0].outDir).toBeUndefined();
+        expect(await loadPackageConfig(pkgJsonPath)).toEqual([]);
 
-        const writtenContent = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"));
-        expect(writtenContent["moodle-client"]).toBeDefined();
-        expect(writtenContent["moodle-client"]).toEqual([
-            {
-                namespace: "webservice",
-                source: {
-                    type: "moodle",
-                    version: "4.5",
-                },
-                webservices: ["*"],
-            },
-        ]);
+        expect(await fs.readFile(pkgJsonPath, "utf-8")).toBe(raw);
     });
 
-    it("should auto-generate default configuration in package.json when moodle-client array is empty", async () => {
+    it("should return no entries when moodle-client is empty, without writing package.json", async () => {
         const pkgContent = {
             name: "test-app",
             "moodle-client": [],
         };
-        await fs.writeFile(pkgJsonPath, JSON.stringify(pkgContent, null, 2), "utf-8");
+        const raw = JSON.stringify(pkgContent, null, 2);
+        await fs.writeFile(pkgJsonPath, raw, "utf-8");
 
-        const configs = await loadPackageConfig(pkgJsonPath);
-        expect(configs).toHaveLength(1);
-        expect(configs[0].namespace).toBe("webservice");
-        expect(configs[0].outDir).toBeUndefined();
+        expect(await loadPackageConfig(pkgJsonPath)).toEqual([]);
 
-        const writtenContent = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"));
-        expect(writtenContent["moodle-client"]).toHaveLength(1);
-        expect(writtenContent["moodle-client"][0].namespace).toBe("webservice");
+        expect(await fs.readFile(pkgJsonPath, "utf-8")).toBe(raw);
+    });
+
+    it("should return no entries without creating package.json when none exists and no path is given", async () => {
+        const originalCwd = process.cwd();
+        try {
+            process.chdir(path.dirname(pkgJsonPath));
+            expect(await loadPackageConfig()).toEqual([]);
+            expect(await fs.access(pkgJsonPath).then(() => true).catch(() => false)).toBe(false);
+        } finally {
+            process.chdir(originalCwd);
+        }
+    });
+
+    it("should reject an entry using the bundled namespace 'webservice'", async () => {
+        await fs.writeFile(
+            pkgJsonPath,
+            JSON.stringify({ name: "a", "moodle-client": [{ namespace: "webservice", source: { type: "moodle-official", version: "4.5" }, webservices: ["*"] }] }),
+            "utf-8"
+        );
+        await expect(loadPackageConfig(pkgJsonPath)).rejects.toMatchObject({
+            code: "ERR_CONFIG_RESERVED_NAMESPACE",
+            action: expect.stringContaining("npx moodle-delete-schemas --namespace webservice"),
+        });
     });
 
     it("should throw on invalid JSON syntax in package.json", async () => {

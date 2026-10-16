@@ -4,6 +4,7 @@ import path from "path";
 import os from "os";
 import {
     promptCreateSchemas,
+    createSchemasFromOptions,
     parseWebservicesInput,
     parseYesNoInput,
     validateNamespace,
@@ -71,26 +72,32 @@ describe("moodle-create-schemas unit tests", () => {
         });
 
         it("should validate namespace (non-empty, valid format, no duplicates)", () => {
-            expect(validateNamespace("moodle5.0", new Set())).toBe(true);
+            expect(validateNamespace("moodle50", new Set())).toBe(true);
             expect(validateNamespace("legacy_api", new Set())).toBe(true);
+            expect(validateNamespace("$moodle", new Set())).toBe(true);
 
             // Empty
             expect(() => validateNamespace("", new Set())).toThrow(/empty/i);
             expect(() => validateNamespace("   ", new Set())).toThrow(/empty/i);
 
             // Duplicate
-            const existing = new Set(["moodle5.0"]);
-            expect(() => validateNamespace("moodle5.0", existing)).toThrow(/already exists/i);
+            const existing = new Set(["moodle50"]);
+            expect(() => validateNamespace("moodle50", existing)).toThrow(/already exists/i);
 
-            // Invalid characters (spaces)
+            // Not a valid identifier: it becomes moodle.<namespace> and part of generated type names
             expect(() => validateNamespace("invalid name", new Set())).toThrow(/invalid/i);
+            expect(() => validateNamespace("moodle5.0", new Set())).toThrow(/valid identifier/i);
+            expect(() => validateNamespace("local-dev", new Set())).toThrow(/valid identifier/i);
+            expect(() => validateNamespace("5moodle", new Set())).toThrow(/valid identifier/i);
+
+            // Reserved for the bundled namespace
+            expect(() => validateNamespace("webservice", new Set())).toThrow(/reserved/i);
         });
 
         it("should validate source option (1 = Remote, 2 = Local, 3 = Repository)", () => {
-            expect(validateSourceOption("1")).toBe("remote");
-            expect(validateSourceOption("2")).toBe("local");
-
-            expect(validateSourceOption("3")).toBe("repository");
+            expect(validateSourceOption("1")).toBe("moodle-official");
+            expect(validateSourceOption("2")).toBe("moodle-local");
+            expect(validateSourceOption("3")).toBe("moodle-repository");
 
             // Invalid options
             expect(() => validateSourceOption("4")).toThrow(/invalid/i);
@@ -117,13 +124,13 @@ describe("moodle-create-schemas unit tests", () => {
             const mockRunner = vi.fn().mockResolvedValue(undefined);
 
             // Answers sequence:
-            // 1. Namespace: "moodle5.0"
+            // 1. Namespace: "moodle50"
             // 2. Source: "1" (Remote)
             // 3. Version: "5.0"
             // 4. Webservices: '["core_user_*"]'
             // 5. Save in project dir?: "n"
             // 6. Create another schema?: "n"
-            const answers = ["moodle5.0", "1", "5.0", '["core_user_*"]', "n", "n"];
+            const answers = ["moodle50", "1", "5.0", '["core_user_*"]', "n", "n"];
 
             await promptCreateSchemas({
                 pkgPath: pkgJsonPath,
@@ -135,7 +142,7 @@ describe("moodle-create-schemas unit tests", () => {
             const updatedPkg = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"));
             expect(updatedPkg["moodle-client"]).toHaveLength(1);
             expect(updatedPkg["moodle-client"][0]).toEqual({
-                namespace: "moodle5.0",
+                namespace: "moodle50",
                 source: {
                     type: "moodle-official",
                     version: "5.0",
@@ -153,14 +160,14 @@ describe("moodle-create-schemas unit tests", () => {
             const mockRunner = vi.fn().mockResolvedValue(undefined);
 
             // Answers sequence:
-            // 1. Namespace: "moodle5.0"
+            // 1. Namespace: "moodle50"
             // 2. Source: "1" (Remote)
             // 3. Version: "5.0"
             // 4. Webservices: "*"
             // 5. Save in project dir?: "y"
             // 6. Path: "src/schemas"
             // 7. Create another schema?: "n"
-            const answers = ["moodle5.0", "1", "5.0", "*", "y", "src/schemas", "n"];
+            const answers = ["moodle50", "1", "5.0", "*", "y", "src/schemas", "n"];
 
             await promptCreateSchemas({
                 pkgPath: pkgJsonPath,
@@ -171,7 +178,7 @@ describe("moodle-create-schemas unit tests", () => {
             const updatedPkg = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"));
             expect(updatedPkg["moodle-client"]).toHaveLength(1);
             expect(updatedPkg["moodle-client"][0]).toEqual({
-                namespace: "moodle5.0",
+                namespace: "moodle50",
                 source: {
                     type: "moodle-official",
                     version: "5.0",
@@ -272,7 +279,7 @@ describe("moodle-create-schemas unit tests", () => {
                 "moodle-client": [
                     {
                         namespace: "existingSchema",
-                        source: { type: "moodle", version: "4.4" },
+                        source: { type: "moodle-official", version: "4.4" },
                         webservices: ["*"],
                     },
                 ],
@@ -301,7 +308,7 @@ describe("moodle-create-schemas unit tests", () => {
                 "moodle-client": [
                     {
                         namespace: "stableSchema",
-                        source: { type: "moodle", version: "4.4" },
+                        source: { type: "moodle-official", version: "4.4" },
                         webservices: ["*"],
                     },
                 ],
@@ -340,6 +347,66 @@ describe("moodle-create-schemas unit tests", () => {
             // Verify failed directory was cleaned up
             const exists = await fs.access(path.join(createdOutDir, "failingSchema")).then(() => true).catch(() => false);
             expect(exists).toBe(false);
+        });
+    });
+    describe("One-line mode (createSchemasFromOptions)", () => {
+        it("should append the entry built from flags and generate it", async () => {
+            await fs.writeFile(pkgJsonPath, JSON.stringify({ name: "my-app" }, null, 2), "utf-8");
+            const runner = vi.fn().mockResolvedValue(undefined);
+
+            const entry = await createSchemasFromOptions({
+                pkgPath: pkgJsonPath,
+                flags: {
+                    namespace: "funiber",
+                    sourceType: "moodle-repository",
+                    sourceUrl: "https://gitlab.example.com/moodle.git",
+                    sourceBranch: "UEA_MASTER",
+                    outDir: "src/moodle",
+                },
+                generatorRunner: runner,
+            });
+
+            const expected = {
+                namespace: "funiber",
+                source: { type: "moodle-repository", url: "https://gitlab.example.com/moodle.git", branch: "UEA_MASTER" },
+                webservices: ["*"],
+                outDir: "src/moodle",
+            };
+            expect(entry).toEqual(expected);
+            const pkg = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"));
+            expect(pkg["moodle-client"]).toEqual([expected]);
+            expect(runner).toHaveBeenCalledWith(pkgJsonPath);
+        });
+
+        it("should reject a namespace that already exists without touching package.json", async () => {
+            const initial = { name: "my-app", "moodle-client": [{ namespace: "funiber", source: { type: "moodle-official", version: "4.5" }, webservices: ["*"] }] };
+            const raw = JSON.stringify(initial, null, 2);
+            await fs.writeFile(pkgJsonPath, raw, "utf-8");
+            const runner = vi.fn();
+
+            await expect(
+                createSchemasFromOptions({
+                    pkgPath: pkgJsonPath,
+                    flags: { namespace: "funiber", sourceType: "moodle-official", sourceVersion: "4.4" },
+                    generatorRunner: runner,
+                })
+            ).rejects.toThrow(/already exists/);
+            expect(await fs.readFile(pkgJsonPath, "utf-8")).toBe(raw);
+            expect(runner).not.toHaveBeenCalled();
+        });
+
+        it("should roll back package.json when generation fails", async () => {
+            const raw = JSON.stringify({ name: "my-app" }, null, 2);
+            await fs.writeFile(pkgJsonPath, raw, "utf-8");
+
+            await expect(
+                createSchemasFromOptions({
+                    pkgPath: pkgJsonPath,
+                    flags: { namespace: "moodle45", sourceType: "moodle-official", sourceVersion: "4.5" },
+                    generatorRunner: vi.fn().mockRejectedValue(new Error("clone failed")),
+                })
+            ).rejects.toThrow("clone failed");
+            expect(await fs.readFile(pkgJsonPath, "utf-8")).toBe(raw);
         });
     });
 });

@@ -1,4 +1,5 @@
-import { runGenerator } from "../runner";
+import { runGenerator, SkippedNamespace } from "../runner";
+import { colors } from "./prompt-helpers";
 import { formatGeneratorError } from "../utils/environment-validator";
 
 function calculateProgress(
@@ -17,7 +18,7 @@ function renderBar(percent: number, barWidth: number): string {
     return "■".repeat(filledCount) + "·".repeat(barWidth - filledCount);
 }
 
-export function buildBox(lines: string[]): string[] {
+function buildBox(lines: string[]): string[] {
     const contentWidth = Math.max(...lines.map((line) => line.length));
     const width = Math.max(contentWidth + 4, 60);
     const top = `┌${"─".repeat(width)}┐`;
@@ -83,12 +84,38 @@ function stopProgressBar(
     renderCompletion(startTime, barWidth, Boolean(process.stdout.isTTY));
 }
 
+/**
+ * Warns about invalid entries a targeted run left untouched.
+ */
+function reportSkippedNamespaces(skipped: SkippedNamespace[]): void {
+    for (const entry of skipped) {
+        const name = entry.namespace ? `'${entry.namespace}'` : "an entry without namespace";
+        console.warn(
+            colors.orange(`[moodle-client] Warning: skipped ${name}, its configuration is invalid; its schemas were left untouched.`) +
+                `\n  ${entry.reason}`
+        );
+    }
+}
+
+/** Errors already printed by the progress bar, so the CLI entrypoints do not print them twice. */
+const reportedErrors = new WeakSet<object>();
+
+/**
+ * Whether the progress bar already printed this error.
+ */
+export function wasErrorReported(error: unknown): boolean {
+    return typeof error === "object" && error !== null && reportedErrors.has(error);
+}
+
 export function reportProgressError(timer: NodeJS.Timeout | null, error: unknown): void {
     if (timer) {
         clearInterval(timer);
     }
     process.stdout.write("\n\n");
     console.error(formatGeneratorError(error));
+    if (typeof error === "object" && error !== null) {
+        reportedErrors.add(error);
+    }
 }
 
 /**
@@ -101,12 +128,13 @@ export async function runGeneratorWithProgress(
     const barWidth = 30;
     const { startTime, timer } = startProgressBar(barWidth);
     try {
-        await runGenerator(configPath, {
+        const result = await runGenerator(configPath, {
             silent: true,
             force: options?.force,
             forceNamespaces: options?.forceNamespaces,
         });
         stopProgressBar(startTime, timer, barWidth);
+        reportSkippedNamespaces(result.skipped);
     } catch (error) {
         reportProgressError(timer, error);
         throw error;

@@ -218,7 +218,7 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
 
     describe("generateMasterBarrel outDir protection", () => {
         const configs = [
-            { namespace: "ws", source: { type: "local", path: "/m" }, webservices: ["*"], outDir: "src/moodle" },
+            { namespace: "ws", source: { type: "moodle-local", path: "/m" }, webservices: ["*"], outDir: "src/moodle" },
         ] as any;
 
         it("should never overwrite or delete hand-written barrels in the outDir root", async () => {
@@ -275,13 +275,13 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
             const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
                 {
                     namespace: "legacy",
-                    source: { type: "local", path: path.join(tempDir, "local-moodle") },
+                    source: { type: "moodle-local", path: path.join(tempDir, "local-moodle") },
                     webservices: ["core_course_*"],
                     outDir: "./schemas",
                 },
                 {
                     namespace: "default",
-                    source: { type: "local", path: path.join(tempDir, "local-moodle") },
+                    source: { type: "moodle-local", path: path.join(tempDir, "local-moodle") },
                     webservices: ["mod_assign_*"],
                     outDir: "./schemas",
                 },
@@ -349,7 +349,7 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
             const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
                 {
                     namespace: "legacy",
-                    source: { type: "local", path: path.join(tempDir, "local-moodle") },
+                    source: { type: "moodle-local", path: path.join(tempDir, "local-moodle") },
                     webservices: ["core_course_*"],
                     outDir: "./schemas",
                 },
@@ -404,7 +404,7 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
             const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
                 {
                     namespace: "legacy",
-                    source: { type: "local", path: path.join(tempDir, "local-moodle") },
+                    source: { type: "moodle-local", path: path.join(tempDir, "local-moodle") },
                     webservices: ["core_course_*"],
                     outDir: "./schemas",
                 },
@@ -458,7 +458,7 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
             const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
                 {
                     namespace: "webservice",
-                    source: { type: "moodle", version: "4.5" },
+                    source: { type: "moodle-official", version: "4.5" },
                     webservices: ["*"],
                     outDir: undefined,
                 },
@@ -483,7 +483,7 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
             const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
                 {
                     namespace: "webservice",
-                    source: { type: "moodle", version: "4.5" },
+                    source: { type: "moodle-official", version: "4.5" },
                     webservices: ["*"],
                     outDir: undefined,
                 },
@@ -513,7 +513,7 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
             expect(extractSpy).toHaveBeenCalled();
         });
 
-        it("should auto-inject default configuration into package.json and run without outDir", async () => {
+        it("should run the bundled default namespace without outDir and without touching package.json", async () => {
             const wsDistDir = path.join(nodeModulesDir, "dist/schemas/webservice");
             await fs.mkdir(wsDistDir, { recursive: true });
             await fs.writeFile(path.join(wsDistDir, "index.d.ts"), "export {};\n", "utf-8");
@@ -524,11 +524,8 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
             );
 
             const pkgJsonPath = path.join(tempDir, "package.json");
-            await fs.writeFile(
-                pkgJsonPath,
-                JSON.stringify({ name: "unconfigured-app", version: "1.0.0" }, null, 2),
-                "utf-8"
-            );
+            const raw = JSON.stringify({ name: "unconfigured-app", version: "1.0.0" }, null, 2);
+            await fs.writeFile(pkgJsonPath, raw, "utf-8");
 
             const extractSpy = vi.mocked(extractWebservice);
             extractSpy.mockClear();
@@ -541,19 +538,7 @@ describe("outDir Governance, Detection & Selective Cleanup", () => {
                 process.chdir(originalCwd);
             }
 
-            const updatedPkg = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"));
-            expect(updatedPkg["moodle-client"]).toBeDefined();
-            expect(updatedPkg["moodle-client"]).toEqual([
-                {
-                    namespace: "webservice",
-                    source: {
-                        type: "moodle",
-                        version: "4.5",
-                    },
-                    webservices: ["*"],
-                },
-            ]);
-
+            expect(await fs.readFile(pkgJsonPath, "utf-8")).toBe(raw);
             expect(extractSpy).not.toHaveBeenCalled();
         });
     });
