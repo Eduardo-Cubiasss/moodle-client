@@ -53,7 +53,8 @@ describe("buildEntryFromFlags (moodle-create-schemas one-line mode)", () => {
     it("should require the fields of the chosen source type", () => {
         expect(() => buildEntryFromFlags({ namespace: "x", sourceType: "moodle-official" }, new Set())).toThrow(/'--source.version' is required when --source.type is 'moodle-official'/);
         expect(() => buildEntryFromFlags({ namespace: "x", sourceType: "moodle-repository", outDir: "o" }, new Set())).toThrow(/'--source.url' is required/);
-        expect(() => buildEntryFromFlags({ namespace: "x", sourceType: "moodle-local", outDir: "o" }, new Set())).toThrow(/'--source.path' is required/);
+        // A local path is not required: it is read from MOODLE_<NAMESPACE>_PATH or asked when generating
+        expect(buildEntryFromFlags({ namespace: "x", sourceType: "moodle-local", outDir: "o" }, new Set()).source).toEqual({ type: "moodle-local" });
     });
 
     it("should require --outDir for repository and local sources", () => {
