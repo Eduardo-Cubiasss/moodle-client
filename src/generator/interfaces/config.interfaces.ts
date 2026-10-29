@@ -30,9 +30,14 @@ export const LEGACY_SOURCE_TYPES: Readonly<Record<string, SourceType>> = {
     local: "moodle-local",
 };
 
+/**
+ * A local Moodle checkout. Its path differs on every machine, so it is never saved in package.json:
+ * it is given each time the namespace is generated (`--source.path`, the `MOODLE_<NAMESPACE>_PATH`
+ * variable or a prompt).
+ */
 export interface MoodleLocalSource {
     type: "moodle-local";
-    path: string;
+    path?: string;
 }
 
 export interface MoodleOfficialSource {
@@ -93,7 +98,6 @@ export type ExtendedGeneratorErrorCode =
     | "ERR_CONFIG_MISSING_NAMESPACE"
     | "ERR_CONFIG_DUPLICATE_NAMESPACE"
     | "ERR_CONFIG_MISSING_SOURCE"
-    | "ERR_CONFIG_MISSING_LOCAL_PATH"
     | "ERR_CONFIG_MISSING_REPOSITORY_URL"
     | "ERR_CONFIG_MISSING_OUTDIR_REPOSITORY"
     | "ERR_CONFIG_INVALID_SOURCE_TYPE"
@@ -109,7 +113,8 @@ export type ExtendedGeneratorErrorCode =
     | "ERR_CLI_UNKNOWN_OPTION"
     | "ERR_CLI_MISSING_OPTION"
     | "ERR_CLI_INVALID_OPTION"
-    | "ERR_SYNC_FAILED";
+    | "ERR_SYNC_FAILED"
+    | "ERR_LOCAL_PATH_REQUIRED";
 
 export interface ExtendedGeneratorErrorOptions {
     code: ExtendedGeneratorErrorCode;

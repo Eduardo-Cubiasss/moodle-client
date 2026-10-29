@@ -26,7 +26,9 @@ import {
     isOfficialSource,
     BUNDLED_NAMESPACE,
     BUNDLED_MOODLE_VERSION,
+    MoodleSourceConfig,
 } from "./interfaces/config.interfaces";
+import { localPathRequiredError } from "./config/local-path";
 import {
     createGeneratorError,
     validateSchemaDeclarations,
@@ -55,6 +57,11 @@ export interface RunGeneratorOptions {
     silent?: boolean;
     force?: boolean;
     forceNamespaces?: string[];
+    /**
+     * Source to generate each namespace from, overriding package.json. This is how a local source
+     * gets the path given for this run, since that path is never saved.
+     */
+    sources?: Record<string, MoodleSourceConfig>;
 }
 
 function logInfo(message: string, silent?: boolean): void {
@@ -411,9 +418,13 @@ export interface BarrelNamespace {
     source: string;
 }
 
+/**
+ * JSDoc source line of a namespace in a barrel. outDir barrels are committed, so a local path
+ * never appears: it is different on every machine.
+ */
 function describeSource(entry: MoodleSchemaConfigEntry): string {
     if (isLocalSource(entry.source)) {
-        return `local (${entry.source.path})`;
+        return "local";
     }
     if (isRepositorySource(entry.source)) {
         return `repository (${entry.source.url}#${entry.source.branch || "main"})`;
@@ -561,6 +572,60 @@ async function loadConfigsForRun(
 }
 
 /**
+ * The entries of a run, each with the source given for this run when there is one.
+ */
+async function loadRunConfigs(
+    configPath: string | undefined,
+    options: RunGeneratorOptions | undefined
+): Promise<{ configs: MoodleSchemaConfigEntry[]; skipped: InvalidConfigEntry[] }> {
+    const loaded = await loadConfigsForRun(configPath, options?.forceNamespaces);
+    const configs = loaded.configs.map((entry) => {
+        const source = options?.sources?.[entry.namespace];
+        return source ? { ...entry, source } : entry;
+    });
+    assertNamespacesConfigured(options?.forceNamespaces, configs);
+    return { configs, skipped: loaded.skipped };
+}
+
+/**
+ * Whether a run regenerates the entry from its Moodle source, rather than synchronizing schemas
+ * that already exist in its outDir or in the package.
+ */
+async function needsExtraction(
+    entry: MoodleSchemaConfigEntry,
+    configDir: string,
+    pkgDir: string,
+    options: RunGeneratorOptions | undefined
+): Promise<boolean> {
+    if (options?.force || options?.forceNamespaces?.includes(entry.namespace)) {
+        return true;
+    }
+    if (entry.outDir) {
+        return !(await hasExistingSchemas(path.resolve(configDir, entry.outDir, entry.namespace)));
+    }
+    const inDist = await hasExistingSchemas(path.join(pkgDir, "dist/schemas", entry.namespace));
+    return !inDist && !(await hasExistingSchemas(path.join(pkgDir, "src/schemas", entry.namespace)));
+}
+
+/**
+ * The entries a run with these options will regenerate from their Moodle source. The CLIs use it to
+ * ask for the paths of local sources before the run starts.
+ */
+export async function planExtraction(configPath?: string, options?: RunGeneratorOptions): Promise<MoodleSchemaConfigEntry[]> {
+    const resolvedConfigPath = configPath ? path.resolve(configPath) : path.resolve(process.cwd(), "package.json");
+    const configDir = path.dirname(resolvedConfigPath);
+    const { configs } = await loadRunConfigs(configPath, options);
+    const pkgDir = findMoodleClientPackageDir();
+    const planned: MoodleSchemaConfigEntry[] = [];
+    for (const entry of configs) {
+        if (await needsExtraction(entry, configDir, pkgDir, options)) {
+            planned.push(entry);
+        }
+    }
+    return planned;
+}
+
+/**
  * Skipped entries whose schemas are still installed in the package stay in the master barrel,
  * so their types do not disappear from MoodleClient while their configuration is being fixed.
  */
@@ -583,8 +648,7 @@ export async function runGenerator(
         : path.resolve(process.cwd(), "package.json");
     const configDir = path.dirname(resolvedConfigPath);
 
-    const { configs, skipped } = await loadConfigsForRun(configPath, options?.forceNamespaces);
-    assertNamespacesConfigured(options?.forceNamespaces, configs);
+    const { configs, skipped } = await loadRunConfigs(configPath, options);
     const skippedNamespaces = skipped.flatMap((entry) => (entry.namespace ? [entry.namespace] : []));
     const pkgDir = findMoodleClientPackageDir();
     const targetSchemasDir = path.join(pkgDir, "dist/schemas");
@@ -720,6 +784,10 @@ export async function runGenerator(
 
         if (isLocalSource(entry.source)) {
             const rawPath = entry.source.path;
+            if (!rawPath) {
+                // The path of a local source is never saved: the CLI resolves it before the run.
+                throw localPathRequiredError(entry.namespace);
+            }
             targetMoodlePath = rawPath.startsWith("~/")
                 ? path.join(os.homedir(), rawPath.slice(2))
                 : path.resolve(configDir, rawPath);

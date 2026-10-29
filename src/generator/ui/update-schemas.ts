@@ -8,6 +8,7 @@ import {
     SourceType,
     isSourceType,
     BUNDLED_NAMESPACE,
+    isLocalSource,
 } from "../interfaces/config.interfaces";
 import { SchemaEntryFlags } from "../interfaces/cli.interfaces";
 import {
@@ -16,13 +17,14 @@ import {
     validateRepositoryUrlInput,
     validateBranchInput,
     validateMoodleVersionInput,
-    validateLocalPathInput,
 } from "../config/input-validators";
 import { mergeEntryWithFlags, describeEntryChanges, normalizeLegacySource } from "../config/entry-builder";
+import { resolveLocalPath } from "../config/local-path";
+import { askLocalPath, canPrompt } from "./local-path-prompt";
 import { runGeneratorWithProgress, wasErrorReported } from "./progress-bar";
-import { findMoodleClientPackageDir } from "../runner";
+import { findMoodleClientPackageDir, RunGeneratorOptions } from "../runner";
 import { cleanNamespaceOutDir, namespaceNotFoundError, promptNamespaceChoice } from "./delete-schemas";
-import { createGeneratorError, reservedNamespaceError } from "../config/config-manager";
+import { createGeneratorError, reservedNamespaceError, toSavedEntry } from "../config/config-manager";
 import {
     colors,
     SEPARATOR,
@@ -32,10 +34,13 @@ import {
     parseYesNoInput,
 } from "./prompt-helpers";
 
+export type UpdateGeneratorRunner = (pkgPath: string, namespace: string, options: RunGeneratorOptions) => Promise<void>;
+
 export interface PromptUpdateSchemasOptions {
     pkgPath?: string;
     mockAnswers?: string[];
-    generatorRunner?: (pkgPath: string, namespace: string) => Promise<void>;
+    env?: NodeJS.ProcessEnv;
+    generatorRunner?: UpdateGeneratorRunner;
 }
 
 export interface UpdateSchemasFromOptions {
@@ -43,7 +48,10 @@ export interface UpdateSchemasFromOptions {
     flags: SchemaEntryFlags;
     /** Regenerate the namespace after saving (`--sync`) */
     sync?: boolean;
-    generatorRunner?: (pkgPath: string, namespace: string) => Promise<void>;
+    /** Answers to the local path prompt (tests) */
+    mockAnswers?: string[];
+    env?: NodeJS.ProcessEnv;
+    generatorRunner?: UpdateGeneratorRunner;
 }
 
 export interface UpdateSchemasResult {
@@ -153,10 +161,10 @@ async function restoreDirectories(backup: DirectoryBackup): Promise<void> {
 }
 
 /**
- * Writes the updated entry to package.json.
+ * Writes the updated entry to package.json, without the path of a local source.
  */
 async function saveEntry(loaded: LoadedForUpdate, index: number, updated: MoodleSchemaConfigEntry): Promise<void> {
-    loaded.parsedPkg["moodle-client"] = loaded.configs.map((entry, idx) => (idx === index ? updated : entry));
+    loaded.parsedPkg["moodle-client"] = loaded.configs.map((entry, idx) => (idx === index ? toSavedEntry(updated) : entry));
     await fs.writeFile(loaded.resolvedPkgPath, JSON.stringify(loaded.parsedPkg, null, 2) + "\n", "utf-8");
 }
 
@@ -177,24 +185,29 @@ function syncFailedError(namespace: string, cause: unknown) {
 }
 
 /**
- * Regenerates only this namespace from the saved configuration. If generation fails, every
- * directory it touched is restored, so the previous schemas keep working. On success, a namespace
- * moved to a different outDir is cleaned from the old one (files moodle-client did not generate stay).
+ * Regenerates only this namespace from the saved configuration, a local one from the path given
+ * for this run. If generation fails, every directory it touched is restored, so the previous schemas
+ * keep working. On success, a namespace moved to a different outDir is cleaned from the old one
+ * (files moodle-client did not generate stay).
  */
 async function synchronizeNamespace(
     loaded: LoadedForUpdate,
     before: MoodleSchemaConfigEntry,
     updated: MoodleSchemaConfigEntry,
-    generatorRunner?: (pkgPath: string, namespace: string) => Promise<void>
+    generatorRunner?: UpdateGeneratorRunner
 ): Promise<void> {
     const { resolvedPkgPath, baseDir } = loaded;
+    const runOptions: RunGeneratorOptions = {
+        forceNamespaces: [updated.namespace],
+        ...(isLocalSource(updated.source) ? { sources: { [updated.namespace]: updated.source } } : {}),
+    };
     const backup = await backupDirectories(namespaceDirectories(baseDir, before, updated));
     try {
         try {
             if (generatorRunner) {
-                await generatorRunner(resolvedPkgPath, updated.namespace);
+                await generatorRunner(resolvedPkgPath, updated.namespace, runOptions);
             } else {
-                await runGeneratorWithProgress(resolvedPkgPath, { forceNamespaces: [updated.namespace] });
+                await runGeneratorWithProgress(resolvedPkgPath, runOptions);
             }
         } catch (genErr) {
             await restoreDirectories(backup);
@@ -246,7 +259,7 @@ async function syncIfRequested(
     changes: string[],
     saved: boolean,
     sync: boolean,
-    generatorRunner?: (pkgPath: string, namespace: string) => Promise<void>
+    generatorRunner?: UpdateGeneratorRunner
 ): Promise<UpdateSchemasResult> {
     const before = loaded.configs[index]!;
     const namespace = before.namespace;
@@ -282,15 +295,43 @@ export async function updateSchemasFromOptions(options: UpdateSchemasFromOptions
     }
 
     const before = configs[index]!;
-    const updated = mergeEntryWithFlags(before, options.flags);
-    const changes = describeEntryChanges(before, updated);
+    const merged = mergeEntryWithFlags(before, options.flags);
+    const changes = describeEntryChanges(before, merged);
     printChanges(namespace, changes);
+    if (options.flags.sourcePath !== undefined && !options.sync) {
+        console.log(colors.dim("--source.path is only used to regenerate (--sync), and is never saved."));
+    }
     if (changes.length === 0 && !options.sync) {
         console.log(colors.dim(`Nothing to do for '${namespace}'. Pass options to change, or --sync to regenerate it.`));
         return { saved: false, synchronized: false, namespace, changes, reason: "No changes and --sync not given." };
     }
+    // Resolved before saving, so an invalid or missing path changes nothing
+    const updated = options.sync ? await withLocalPathForOneLine(merged, options) : merged;
     const saved = await persistChanges(loaded, index, updated, changes);
     return syncIfRequested(loaded, index, updated, changes, saved, Boolean(options.sync), options.generatorRunner);
+}
+
+/**
+ * Gives a local entry the path to regenerate it from: `--source.path` (already in the entry),
+ * MOODLE_<NAMESPACE>_PATH or a prompt; other entries are returned unchanged.
+ */
+async function withLocalPath(entry: MoodleSchemaConfigEntry, ctx: PromptContext, env?: NodeJS.ProcessEnv): Promise<MoodleSchemaConfigEntry> {
+    if (!isLocalSource(entry.source) || entry.source.path) {
+        return entry;
+    }
+    const ask = canPrompt(ctx) ? (ns: string) => askLocalPath(ctx, ns) : undefined;
+    return { ...entry, source: { type: "moodle-local", path: await resolveLocalPath(entry.namespace, { env, ask }) } };
+}
+
+async function withLocalPathForOneLine(entry: MoodleSchemaConfigEntry, options: UpdateSchemasFromOptions): Promise<MoodleSchemaConfigEntry> {
+    const isMock = Boolean(options.mockAnswers && options.mockAnswers.length > 0);
+    const needsPrompt = isLocalSource(entry.source) && !entry.source.path;
+    const rl = !isMock && needsPrompt && process.stdin.isTTY ? createPromptInterface() : undefined;
+    try {
+        return await withLocalPath(entry, { rl, mockAnswers: options.mockAnswers }, options.env);
+    } finally {
+        rl?.close();
+    }
 }
 
 /**
@@ -340,6 +381,10 @@ async function promptSource(
     current: MoodleSchemaConfigEntry,
     type: SourceType
 ): Promise<MoodleSchemaConfigEntry["source"]> {
+    if (type === "moodle-local") {
+        // The path is not saved: it is asked only to regenerate, after the changes are saved
+        return { type };
+    }
     const same = current.source.type === type ? current.source : undefined;
     console.log(SEPARATOR);
 
@@ -348,17 +393,12 @@ async function promptSource(
         const version = await askPrefilled(ctx, "Please enter the Moodle version", currentVersion, "Version: ", validateMoodleVersionInput);
         return { type, version };
     }
-    if (type === "moodle-repository") {
-        const currentUrl = same?.type === "moodle-repository" ? same.url : "";
-        const currentBranch = same?.type === "moodle-repository" ? same.branch ?? "main" : "main";
-        const url = await askPrefilled(ctx, "Please enter the repository URL", currentUrl, "URL: ", validateRepositoryUrlInput);
-        console.log(SEPARATOR);
-        const branch = await askPrefilled(ctx, "Please enter the branch or tag (empty for main)", currentBranch, "Branch: ", validateBranchInput);
-        return { type, url, branch };
-    }
-    const currentPath = same?.type === "moodle-local" ? same.path : "";
-    const localPath = await askPrefilled(ctx, "Please enter the path to your Moodle directory", currentPath, "Path: ", validateLocalPathInput);
-    return { type, path: localPath };
+    const currentUrl = same?.type === "moodle-repository" ? same.url : "";
+    const currentBranch = same?.type === "moodle-repository" ? same.branch ?? "main" : "main";
+    const url = await askPrefilled(ctx, "Please enter the repository URL", currentUrl, "URL: ", validateRepositoryUrlInput);
+    console.log(SEPARATOR);
+    const branch = await askPrefilled(ctx, "Please enter the branch or tag (empty for main)", currentBranch, "Branch: ", validateBranchInput);
+    return { type, url, branch };
 }
 
 async function promptOutDir(ctx: PromptContext, current: MoodleSchemaConfigEntry, type: SourceType): Promise<string | undefined> {
@@ -450,10 +490,12 @@ export async function promptUpdateSchemas(options?: PromptUpdateSchemasOptions):
 
         console.log(SEPARATOR);
         const sync = await askYesNo(ctx, `Do you want to synchronize the schemas for ${namespace}? (y/n)`);
+        // A local source needs its path to regenerate; it is asked now, before stdin is released
+        const toGenerate = sync ? await withLocalPath(updated, ctx, options?.env) : updated;
         if (rl) {
             rl.close();
         }
-        return await syncIfRequested(loaded, index, updated, changes, saved, sync, options?.generatorRunner);
+        return await syncIfRequested(loaded, index, toGenerate, changes, saved, sync, options?.generatorRunner);
     } finally {
         if (rl) {
             rl.close();

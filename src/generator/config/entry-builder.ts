@@ -17,6 +17,7 @@ import {
     validateLocalPathInput,
     validateOutDirInput,
 } from "./input-validators";
+import { absoluteLocalPath } from "./local-path";
 
 /** Source flags that only make sense for one source type. */
 const SOURCE_FLAGS_BY_TYPE: Readonly<Record<SourceType, ReadonlyArray<keyof SchemaEntryFlags>>> = {
@@ -94,7 +95,9 @@ function assertSourceFlagsMatch(flags: SchemaEntryFlags, type: SourceType): void
 }
 
 /**
- * Builds a source from flags alone; every field the type requires must be present.
+ * Builds a source from flags alone; every saved field the type requires must be present. A local
+ * source may come without a path: it is then read from MOODLE_<NAMESPACE>_PATH or asked when
+ * generating.
  */
 function buildSource(flags: SchemaEntryFlags, type: SourceType): MoodleSourceConfig {
     const reason = `when --source.type is '${type}'`;
@@ -110,8 +113,9 @@ function buildSource(flags: SchemaEntryFlags, type: SourceType): MoodleSourceCon
             branch: validateBranchInput(flags.sourceBranch ?? ""),
         };
     }
-    if (flags.sourcePath === undefined) throw missingOption("--source.path", reason);
-    return { type, path: validated("sourcePath", () => validateLocalPathInput(flags.sourcePath!)) };
+    return flags.sourcePath === undefined
+        ? { type }
+        : { type, path: validated("sourcePath", () => absoluteLocalPath(validateLocalPathInput(flags.sourcePath!))) };
 }
 
 /**
@@ -130,9 +134,10 @@ function overrideSource(current: MoodleSourceConfig, flags: SchemaEntryFlags): M
             ...(flags.sourceBranch !== undefined ? { branch: validateBranchInput(flags.sourceBranch) } : {}),
         };
     }
+    // A local path is never saved, so there is no current one to keep
     return flags.sourcePath === undefined
-        ? current
-        : { ...current, path: validated("sourcePath", () => validateLocalPathInput(flags.sourcePath!)) };
+        ? { type: "moodle-local" }
+        : { type: "moodle-local", path: validated("sourcePath", () => absoluteLocalPath(validateLocalPathInput(flags.sourcePath!))) };
 }
 
 /**
@@ -221,14 +226,14 @@ const CHANGE_FIELDS: ReadonlyArray<[string, (entry: MoodleSchemaConfigEntry) => 
     ["source.version", (e) => (e.source as { version?: string }).version],
     ["source.url", (e) => (e.source as { url?: string }).url],
     ["source.branch", (e) => (e.source as { branch?: string }).branch],
-    ["source.path", (e) => (e.source as { path?: string }).path],
     ["webservices", (e) => e.webservices],
     ["outDir", (e) => e.outDir],
 ];
 
 /**
  * Describes what differs between two entries, one short line per changed field
- * (e.g. `source.branch: main -> release`). Unchanged fields are not listed.
+ * (e.g. `source.branch: main -> release`). Unchanged fields are not listed; a local path is never
+ * compared, since it is not saved.
  */
 export function describeEntryChanges(before: MoodleSchemaConfigEntry, after: MoodleSchemaConfigEntry): string[] {
     return CHANGE_FIELDS.map(([name, read]) => [name, formatValue(read(before)), formatValue(read(after))] as const)
