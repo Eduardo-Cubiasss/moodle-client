@@ -415,7 +415,7 @@ Configurations are declared under the `"moodle-client"` array in your `package.j
 - `source` (object, required). `type` is one of exactly three values:
   - **Official release**: `{ "type": "moodle-official", "version": "4.5" }`
   - **Remote Git repository**: `{ "type": "moodle-repository", "url": "https://github.com/my-org/moodle.git", "branch": "main" }`
-  - **Local instance**: `{ "type": "moodle-local" }`. Its path differs on every machine, so it is **never saved**: it is given each time the namespace is generated, with `--source.path`, the `MOODLE_<NAMESPACE>_PATH` environment variable (e.g. `MOODLE_LOCALDEV_PATH`), or a prompt. Without a terminal, a missing path fails with `ERR_LOCAL_PATH_REQUIRED`. See [Local paths](docs/cli.md#local-paths).
+  - **Local instance**: `{ "type": "moodle-local" }`. Its path differs on every machine, so it is **never saved**: it is given each time the namespace is generated, with `--source.path` or a prompt. Without a terminal, a missing path fails with `ERR_LOCAL_PATH_REQUIRED`. See [Local paths](docs/cli.md#local-paths).
 
   The short names used by pre-release builds (`moodle`, `official`, `repository`, `remote`, `git`, `local`) are rejected with an error that names the replacement; `npx moodle-update-schemas --namespace <name> --sync` migrates an old entry.
 - `webservices` (string[], required): Service names or wildcard patterns to include (e.g. `["*"]`, `["core_*"]`, `["mod_quiz_*"]`).

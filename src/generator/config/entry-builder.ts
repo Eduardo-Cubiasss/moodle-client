@@ -96,8 +96,7 @@ function assertSourceFlagsMatch(flags: SchemaEntryFlags, type: SourceType): void
 
 /**
  * Builds a source from flags alone; every saved field the type requires must be present. A local
- * source may come without a path: it is then read from MOODLE_<NAMESPACE>_PATH or asked when
- * generating.
+ * source may come without a path: it is then asked when generating.
  */
 function buildSource(flags: SchemaEntryFlags, type: SourceType): MoodleSourceConfig {
     const reason = `when --source.type is '${type}'`;

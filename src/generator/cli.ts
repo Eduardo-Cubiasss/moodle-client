@@ -16,13 +16,12 @@ export interface GenerateSchemasOptions {
     force?: boolean;
     namespaces?: string[];
     mockAnswers?: string[];
-    env?: NodeJS.ProcessEnv;
     generatorRunner?: (configPath: string | undefined, options: RunGeneratorOptions) => Promise<void>;
 }
 
 /**
- * `moodle-generate-schemas`: asks for the path of every local namespace it is about to regenerate
- * (unless `MOODLE_<NAMESPACE>_PATH` gives it), then runs the generator.
+ * `moodle-generate-schemas`: asks for the path of every local namespace it is about to regenerate,
+ * then runs the generator.
  */
 export async function generateSchemas(options: GenerateSchemasOptions): Promise<void> {
     const runOptions: RunGeneratorOptions = { force: options.force, forceNamespaces: options.namespaces };
@@ -33,7 +32,7 @@ export async function generateSchemas(options: GenerateSchemasOptions): Promise<
     const rl = !isMock && needsPrompt && process.stdin.isTTY ? createPromptInterface() : undefined;
     const ctx: PromptContext = { rl, mockAnswers: options.mockAnswers };
     try {
-        runOptions.sources = await resolveLocalSources(planned, { ctx, env: options.env });
+        runOptions.sources = await resolveLocalSources(planned, { ctx });
     } finally {
         rl?.close();
     }

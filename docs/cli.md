@@ -50,21 +50,20 @@ The path of a `moodle-local` source is **never saved** in `package.json`: it is 
 on every machine. Its entry keeps only `{ "type": "moodle-local" }`, and the path is given
 each time the namespace has to be generated (`moodle-generate-schemas --force` or
 `--namespace`, a namespace without schemas in its `outDir`, `moodle-create-schemas`, and
-`moodle-update-schemas --sync`). It comes from, in this order:
+`moodle-update-schemas --sync`). It comes from:
 
-1. `--source.path <dir>` (`create` and `update`);
-2. the `MOODLE_<NAMESPACE>_PATH` environment variable, with the namespace in upper case and
-   any character other than a letter, digit or `_` replaced by `_` (`localDev` →
-   `MOODLE_LOCALDEV_PATH`, `my$ns` → `MOODLE_MY_NS_PATH`). Its name only depends on the
-   namespace, so it can be set before the namespace is created;
-3. a question in the terminal.
+- `--source.path <dir>`, in `create` and `update`;
+- otherwise, a question in the terminal, one per local namespace to generate:
+
+```text
+Please enter the path to your Moodle directory for 'localDev' (it is not saved)
+~ Example: ~/projects/moodle ~
+Path: _
+```
 
 Without a terminal to ask on (CI, a script, `docker exec` without `-t`), a missing path fails
-with `ERR_LOCAL_PATH_REQUIRED` instead of waiting for an answer:
-
-```bash
-MOODLE_LOCALDEV_PATH=~/moodle npx moodle-generate-schemas --force
-```
+with `ERR_LOCAL_PATH_REQUIRED` instead of waiting for an answer. The path is never read from
+an environment variable or a `.env` file.
 
 Synchronizing schemas that are already in `outDir` (a plain `moodle-generate-schemas`) never
 asks for it. A `path` saved by an older version is ignored, and dropped the next time
@@ -131,12 +130,6 @@ generated type names. It must therefore be a valid JavaScript identifier:
 `moodle50`, `moodle5_0` and `localDev` are valid. `moodle5.0`, `local-dev` and `5moodle`
 are not.
 
-Two namespaces cannot share the same `MOODLE_<NAMESPACE>_PATH` variable (see
-[Local paths](#local-paths)), so a new name must differ from the existing ones in more than
-upper or lower case and symbols: with `localDev` configured, `localdev` and `LOCALDEV` are
-rejected (both would use `MOODLE_LOCALDEV_PATH`), and `localDev2` is accepted. This applies
-to every source type, since a namespace can become local later with `moodle-update-schemas`.
-
 `webservice` is **reserved**. It is the namespace bundled with the package (Moodle 4.5),
 part of the library rather than of your configuration:
 
@@ -181,8 +174,8 @@ npx moodle-create-schemas --namespace localDev \
   `--namespace`, `--source.type` and the fields that type requires; `--webservices`
   defaults to `*`.
 - **The wizard** asks the same questions and can create several namespaces in one session.
-- **A local source** is generated from the path given (`--source.path`, `MOODLE_<NAMESPACE>_PATH`
-  or the wizard's question), and saved without it.
+- **A local source** is generated from the path given (`--source.path` or the question),
+  and saved without it.
 
 If generation fails (bad credentials, unreachable host, wrong path…), `package.json` is
 restored exactly as it was, and the directories created for the new namespace are
@@ -233,8 +226,7 @@ It starts when `--namespace` is given, and only the options you pass change.
 | `--namespace` only | nothing, unless the entry used an old source type: then the migrated type is saved |
 
 A local source is saved without its path. To regenerate it, `--sync` takes the path from
-`--source.path`, `MOODLE_<NAMESPACE>_PATH` or a question; without `--sync`, `--source.path`
-is not used.
+`--source.path` or a question; without `--sync`, `--source.path` is not used.
 
 ### Wizard
 
@@ -364,11 +356,11 @@ directories are left alone.
 
 ## Running inside Docker
 
-Without a terminal attached, regenerating a local namespace cannot ask for its path: pass
-it in the environment, with the path as the container sees it:
+Regenerating a local namespace asks for its path, so attach a terminal (`-it`), and give
+the path as the container sees it:
 
 ```bash
-docker exec -e MOODLE_LOCALDEV_PATH=/var/www/moodle <container> npx moodle-generate-schemas --force
+docker exec -it <container> npx moodle-generate-schemas --force
 ```
 
 The commands write into `node_modules/@didactika/moodle-client/dist/schemas`. If you run

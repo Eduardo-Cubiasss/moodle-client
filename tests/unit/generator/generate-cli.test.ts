@@ -49,7 +49,7 @@ describe("moodle-generate-schemas (local paths)", () => {
 
     it("should not ask anything when only synchronizing existing schemas", async () => {
         const runner = vi.fn().mockResolvedValue(undefined);
-        await generateSchemas({ configPath: pkgJsonPath, env: {}, generatorRunner: runner });
+        await generateSchemas({ configPath: pkgJsonPath, generatorRunner: runner });
         expect(runner).toHaveBeenCalledWith(pkgJsonPath, { force: undefined, forceNamespaces: undefined, sources: {} });
     });
 
@@ -57,23 +57,14 @@ describe("moodle-generate-schemas (local paths)", () => {
         const moodleDir = await makeMoodleDir(tempDir);
         const runner = vi.fn().mockResolvedValue(undefined);
 
-        await generateSchemas({ configPath: pkgJsonPath, force: true, env: {}, mockAnswers: [moodleDir], generatorRunner: runner });
+        await generateSchemas({ configPath: pkgJsonPath, force: true, mockAnswers: [moodleDir], generatorRunner: runner });
 
         expect(runner.mock.calls[0]![1].sources).toEqual({ dev: { type: "moodle-local", path: moodleDir } });
     });
 
-    it("should read the path from MOODLE_<NAMESPACE>_PATH without asking", async () => {
-        const moodleDir = await makeMoodleDir(tempDir);
-        const runner = vi.fn().mockResolvedValue(undefined);
-
-        await generateSchemas({ configPath: pkgJsonPath, namespaces: ["dev"], env: { MOODLE_DEV_PATH: moodleDir }, generatorRunner: runner });
-
-        expect(runner.mock.calls[0]![1]).toMatchObject({ forceNamespaces: ["dev"], sources: { dev: { type: "moodle-local", path: moodleDir } } });
-    });
-
     it("should not ask for a path when the regenerated namespace is not local", async () => {
         const runner = vi.fn().mockResolvedValue(undefined);
-        await generateSchemas({ configPath: pkgJsonPath, namespaces: ["repo"], env: {}, generatorRunner: runner });
+        await generateSchemas({ configPath: pkgJsonPath, namespaces: ["repo"], generatorRunner: runner });
         expect(runner.mock.calls[0]![1].sources).toEqual({});
     });
 
@@ -82,7 +73,7 @@ describe("moodle-generate-schemas (local paths)", () => {
         const moodleDir = await makeMoodleDir(tempDir);
         const runner = vi.fn().mockResolvedValue(undefined);
 
-        await generateSchemas({ configPath: pkgJsonPath, env: {}, mockAnswers: [moodleDir], generatorRunner: runner });
+        await generateSchemas({ configPath: pkgJsonPath, mockAnswers: [moodleDir], generatorRunner: runner });
 
         expect(runner.mock.calls[0]![1].sources).toEqual({ dev: { type: "moodle-local", path: moodleDir } });
     });
@@ -92,9 +83,9 @@ describe("moodle-generate-schemas (local paths)", () => {
         const wasTTY = process.stdin.isTTY;
         process.stdin.isTTY = false;
         try {
-            await expect(generateSchemas({ configPath: pkgJsonPath, force: true, env: {}, generatorRunner: runner })).rejects.toMatchObject({
+            await expect(generateSchemas({ configPath: pkgJsonPath, force: true, generatorRunner: runner })).rejects.toMatchObject({
                 code: "ERR_LOCAL_PATH_REQUIRED",
-                action: expect.stringContaining("MOODLE_DEV_PATH"),
+                action: expect.stringContaining("Run the command in a terminal"),
             });
         } finally {
             process.stdin.isTTY = wasTTY;

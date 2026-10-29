@@ -7,7 +7,6 @@ import {
     describeInvalidNamespace,
 } from "./config-manager";
 import { SourceType, BUNDLED_NAMESPACE } from "../interfaces/config.interfaces";
-import { localPathEnvVar } from "./local-path";
 
 /**
  * Validators shared by the interactive wizards and the one-line (flag) mode of the CLIs.
@@ -61,14 +60,6 @@ export function validateNamespace(
     }
     if (existingNamespaces.has(trimmed)) {
         throw new Error(`Namespace '${trimmed}' already exists.`);
-    }
-    // Checked for every source type: a namespace can become local later with moodle-update-schemas
-    const envVar = localPathEnvVar(trimmed);
-    const clash = [...existingNamespaces].find((existing) => localPathEnvVar(existing) === envVar);
-    if (clash) {
-        throw new Error(
-            `Namespace '${trimmed}' would share the environment variable ${envVar} with '${clash}', which gives the path of a local source. Choose a name that differs from '${clash}' in more than upper or lower case and symbols.`
-        );
     }
     return true;
 }

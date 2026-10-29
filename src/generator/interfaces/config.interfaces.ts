@@ -32,8 +32,7 @@ export const LEGACY_SOURCE_TYPES: Readonly<Record<string, SourceType>> = {
 
 /**
  * A local Moodle checkout. Its path differs on every machine, so it is never saved in package.json:
- * it is given each time the namespace is generated (`--source.path`, the `MOODLE_<NAMESPACE>_PATH`
- * variable or a prompt).
+ * it is given each time the namespace is generated (`--source.path` or a prompt).
  */
 export interface MoodleLocalSource {
     type: "moodle-local";
