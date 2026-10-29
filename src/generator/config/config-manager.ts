@@ -200,6 +200,14 @@ export interface PackageConfigResult {
 }
 
 /**
+ * The entry as it is written to package.json: the path of a local source is dropped, since it
+ * differs on every machine.
+ */
+export function toSavedEntry(entry: MoodleSchemaConfigEntry): MoodleSchemaConfigEntry {
+    return isLocalSource(entry.source) ? { ...entry, source: { type: entry.source.type } } : entry;
+}
+
+/**
  * Validates and normalizes one "moodle-client" entry, or throws the error describing why it is invalid.
  */
 function resolveConfigEntry(
@@ -265,18 +273,6 @@ function resolveConfigEntry(
     const webservices = Array.isArray(entry.webservices) && entry.webservices.length > 0 ? entry.webservices : ["*"];
 
     if (isLocalSource(entry.source)) {
-        const rawPath = sourceRecord.path;
-        const localPath = typeof rawPath === "string" ? rawPath.trim() : "";
-        if (!localPath) {
-            throw createGeneratorError({
-                code: "ERR_CONFIG_MISSING_LOCAL_PATH",
-                title: "Missing Local Path",
-                details: `Configuration '${namespace}' specifies source 'moodle-local' but is missing 'path'.`,
-                action: `Specify the filesystem path to the Moodle codebase in 'source.path', or run 'npx moodle-delete-schemas' to select and recreate it with 'npx moodle-create-schemas'.`,
-            });
-        }
-
-
         if (!outDir) {
             throw createGeneratorError({
                 code: "ERR_CONFIG_MISSING_OUTDIR_LOCAL",
@@ -286,12 +282,10 @@ function resolveConfigEntry(
             });
         }
 
+        // A path saved by an older version is ignored: it is asked each time the namespace is generated
         return ({
             namespace,
-            source: {
-                type: entry.source.type,
-                path: localPath,
-            },
+            source: { type: entry.source.type },
             webservices,
             outDir,
         });

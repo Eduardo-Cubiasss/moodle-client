@@ -8,9 +8,12 @@ const ENTRY_OPTIONS = `Schema options (mirror the keys of a "moodle-client" entr
   --source.version <x.y>      Moodle version            (moodle-official)
   --source.url <url>          Git clone URL             (moodle-repository)
   --source.branch <name>      Branch or tag, default main (moodle-repository)
-  --source.path <dir>         Moodle source directory   (moodle-local)
+  --source.path <dir>         Moodle source directory   (moodle-local; never saved)
   --webservices <patterns>    Comma-separated names or prefix_* patterns, default *
   --outDir <dir>              Output directory, required for moodle-repository and moodle-local`;
+
+const LOCAL_PATH_NOTE = `The path of a moodle-local source is never saved in package.json. Without
+--source.path it is read from MOODLE_<NAMESPACE>_PATH (e.g. MOODLE_LOCALDEV_PATH), or asked.`;
 
 const COMMON_OPTIONS = `  --config <path>             package.json to read and write (default ./package.json)
   -h, --help                  Show this help`;
@@ -20,6 +23,9 @@ export const GENERATE_USAGE = `Usage: moodle-generate-schemas [options]
 Generates the TypeScript declarations of every namespace in package.json.
 Namespaces with schemas already in their outDir are synchronized from there.
 
+Regenerating a moodle-local namespace needs its path, which is never saved: it is read
+from MOODLE_<NAMESPACE>_PATH (e.g. MOODLE_LOCALDEV_PATH) or asked.
+
 Options:
   --namespace <name>          Regenerate only this namespace from scratch (repeatable, or a,b)
   -f, --force                 Regenerate every namespace from scratch
@@ -27,7 +33,8 @@ ${COMMON_OPTIONS}
 
 Examples:
   npx moodle-generate-schemas
-  npx moodle-generate-schemas --namespace myRepo`;
+  npx moodle-generate-schemas --namespace myRepo
+  MOODLE_LOCALDEV_PATH=~/moodle npx moodle-generate-schemas --force`;
 
 export const CREATE_USAGE = `Usage: moodle-create-schemas [options]
 
@@ -35,6 +42,8 @@ Adds a namespace to package.json and generates it. Without schema options it sta
 interactive wizard; with them it runs without prompts.
 
 ${ENTRY_OPTIONS}
+
+${LOCAL_PATH_NOTE}
 
 Options:
 ${COMMON_OPTIONS}
@@ -55,6 +64,9 @@ without prompts and changes only the options given.
 
 ${ENTRY_OPTIONS}
   Changing --source.type replaces the whole source: give the new type's options too.
+
+${LOCAL_PATH_NOTE} It is only
+needed with --sync.
 
 Options:
   --sync                      After saving, regenerate the namespace's schemas (recommended).

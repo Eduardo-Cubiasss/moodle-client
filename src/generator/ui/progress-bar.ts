@@ -1,4 +1,4 @@
-import { runGenerator, SkippedNamespace } from "../runner";
+import { runGenerator, RunGeneratorOptions, SkippedNamespace } from "../runner";
 import { colors } from "./prompt-helpers";
 import { formatGeneratorError } from "../utils/environment-validator";
 
@@ -123,16 +123,12 @@ export function reportProgressError(timer: NodeJS.Timeout | null, error: unknown
  */
 export async function runGeneratorWithProgress(
     configPath?: string,
-    options?: { force?: boolean; forceNamespaces?: string[] }
+    options?: Omit<RunGeneratorOptions, "silent">
 ): Promise<void> {
     const barWidth = 30;
     const { startTime, timer } = startProgressBar(barWidth);
     try {
-        const result = await runGenerator(configPath, {
-            silent: true,
-            force: options?.force,
-            forceNamespaces: options?.forceNamespaces,
-        });
+        const result = await runGenerator(configPath, { ...options, silent: true });
         stopProgressBar(startTime, timer, barWidth);
         reportSkippedNamespaces(result.skipped);
     } catch (error) {

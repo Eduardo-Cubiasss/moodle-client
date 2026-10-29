@@ -5,6 +5,7 @@ import {
     MoodleSchemaConfigEntry,
     PackageJsonWithMoodleClient,
     SourceType,
+    isLocalSource,
 } from "../interfaces/config.interfaces";
 import { SchemaEntryFlags } from "../interfaces/cli.interfaces";
 import {
@@ -17,8 +18,11 @@ import {
     validateLocalPathInput,
 } from "../config/input-validators";
 import { buildEntryFromFlags } from "../config/entry-builder";
+import { toSavedEntry } from "../config/config-manager";
+import { resolveLocalPath } from "../config/local-path";
 import { runGeneratorWithProgress } from "./progress-bar";
-import { findMoodleClientPackageDir } from "../runner";
+import { findMoodleClientPackageDir, RunGeneratorOptions } from "../runner";
+import { askLocalPath, canPrompt } from "./local-path-prompt";
 import {
     colors,
     SEPARATOR,
@@ -122,26 +126,15 @@ async function promptOfficialSource(
     };
 }
 
+/**
+ * The path is used for this generation only: it is never saved, since it differs on every machine.
+ */
 async function promptLocalSource(
     ctx: PromptContext,
-    namespace: string
+    namespace: string,
+    env?: NodeJS.ProcessEnv
 ): Promise<MoodleSchemaConfigEntry> {
-    console.log(SEPARATOR);
-    let localPath = "";
-    await askQuestion(
-        ctx,
-        "Please enter the path to your Moodle directory",
-        "~/projects/moodle",
-        "Path: ",
-        (val) => {
-            try {
-                localPath = validateLocalPathInput(val);
-                return undefined;
-            } catch (err: any) {
-                return err.message;
-            }
-        }
-    );
+    const localPath = await resolveLocalPath(namespace, { env, ask: (ns) => askLocalPath(ctx, ns) });
 
     console.log(SEPARATOR);
     let webservices: string[] = ["*"];
@@ -262,16 +255,21 @@ async function promptRepositorySource(
     };
 }
 
+export type CreateGeneratorRunner = (pkgPath: string, options: RunGeneratorOptions) => Promise<void>;
+
 export interface PromptCreateSchemasOptions {
     pkgPath?: string;
     mockAnswers?: string[];
-    generatorRunner?: (pkgPath: string) => Promise<void>;
+    env?: NodeJS.ProcessEnv;
+    generatorRunner?: CreateGeneratorRunner;
 }
 
 export interface CreateSchemasFromOptions {
     pkgPath?: string;
     flags: SchemaEntryFlags;
-    generatorRunner?: (pkgPath: string) => Promise<void>;
+    mockAnswers?: string[];
+    env?: NodeJS.ProcessEnv;
+    generatorRunner?: CreateGeneratorRunner;
 }
 
 interface LoadedPackage {
@@ -309,31 +307,31 @@ async function loadPackageForCreate(pkgPath?: string): Promise<LoadedPackage> {
 }
 
 /**
- * Appends the new entries to package.json and generates them. If generation fails, package.json is
- * restored and every directory created for the new entries is removed.
+ * Appends the new entries to package.json (without the path of local sources) and generates them,
+ * local ones from the path given for this run. If generation fails, package.json is restored and
+ * every directory created for the new entries is removed.
  */
 async function persistAndGenerate(
     loaded: LoadedPackage,
     newEntries: MoodleSchemaConfigEntry[],
-    generatorRunner?: (pkgPath: string) => Promise<void>
+    generatorRunner?: CreateGeneratorRunner
 ): Promise<void> {
     const { resolvedPkgPath, parsedPkg, originalPkgRaw, existedInitially } = loaded;
+    const saved = newEntries.map(toSavedEntry);
 
     if (!Array.isArray(parsedPkg["moodle-client"])) {
-        parsedPkg["moodle-client"] = newEntries;
+        parsedPkg["moodle-client"] = saved;
     } else {
-        parsedPkg["moodle-client"].push(...newEntries);
+        parsedPkg["moodle-client"].push(...saved);
     }
     await fs.writeFile(resolvedPkgPath, JSON.stringify(parsedPkg, null, 2) + "\n", "utf-8");
 
+    const runOptions: RunGeneratorOptions = {
+        forceNamespaces: newEntries.map((e) => e.namespace),
+        sources: Object.fromEntries(newEntries.filter((e) => isLocalSource(e.source)).map((e) => [e.namespace, e.source])),
+    };
     try {
-        if (generatorRunner) {
-            await generatorRunner(resolvedPkgPath);
-        } else {
-            await runGeneratorWithProgress(resolvedPkgPath, {
-                forceNamespaces: newEntries.map((e) => e.namespace),
-            });
-        }
+        await (generatorRunner ?? runGeneratorWithProgress)(resolvedPkgPath, runOptions);
     } catch (genErr) {
         // Rollback package.json if initial schema creation failed
         if (existedInitially && originalPkgRaw !== undefined) {
@@ -376,13 +374,25 @@ async function persistAndGenerate(
 
 /**
  * One-line mode of `moodle-create-schemas`: builds the entry from flags, appends it to
- * package.json and generates it, with the same rollback as the wizard.
+ * package.json and generates it, with the same rollback as the wizard. A local source takes its
+ * path from `--source.path`, MOODLE_<NAMESPACE>_PATH, or a prompt when there is a terminal.
  */
 export async function createSchemasFromOptions(
     options: CreateSchemasFromOptions
 ): Promise<MoodleSchemaConfigEntry> {
     const loaded = await loadPackageForCreate(options.pkgPath);
-    const entry = buildEntryFromFlags(options.flags, loaded.existingNamespaces);
+    let entry = buildEntryFromFlags(options.flags, loaded.existingNamespaces);
+    if (isLocalSource(entry.source) && !entry.source.path) {
+        const isMock = Boolean(options.mockAnswers && options.mockAnswers.length > 0);
+        const rl = !isMock && process.stdin.isTTY ? createPromptInterface() : undefined;
+        const ctx: PromptContext = { rl, mockAnswers: options.mockAnswers };
+        try {
+            const ask = canPrompt(ctx) ? (namespace: string) => askLocalPath(ctx, namespace) : undefined;
+            entry = { ...entry, source: { type: "moodle-local", path: await resolveLocalPath(entry.namespace, { env: options.env, ask }) } };
+        } finally {
+            rl?.close();
+        }
+    }
     console.log(colors.orange(`Generating schemas for namespace '${entry.namespace}'....\n`));
     await persistAndGenerate(loaded, [entry], options.generatorRunner);
     return entry;
@@ -449,7 +459,7 @@ export async function promptCreateSchemas(
                 }
             );
 
-            const newEntry = await promptSourceFields(ctx, namespace, sourceType);
+            const newEntry = await promptSourceFields(ctx, namespace, sourceType, options?.env);
             sessionCreatedEntries.push(newEntry);
 
             // 3. Create another schema?
@@ -493,13 +503,14 @@ export async function promptCreateSchemas(
 function promptSourceFields(
     ctx: PromptContext,
     namespace: string,
-    sourceType: SourceType
+    sourceType: SourceType,
+    env?: NodeJS.ProcessEnv
 ): Promise<MoodleSchemaConfigEntry> {
     switch (sourceType) {
         case "moodle-official":
             return promptOfficialSource(ctx, namespace);
         case "moodle-local":
-            return promptLocalSource(ctx, namespace);
+            return promptLocalSource(ctx, namespace, env);
         case "moodle-repository":
             return promptRepositorySource(ctx, namespace);
         default: {
