@@ -66,7 +66,8 @@ describe("ConfigManager - package.json Configuration", () => {
 
         expect(configs[0].namespace).toBe("legacy");
         expect(configs[0].source.type).toBe("moodle-local");
-        expect((configs[0].source as any).path).toBe("/var/www/moodle");
+        // A local path saved by an older version is ignored: it is asked each time it is generated
+        expect(configs[0].source).toEqual({ type: "moodle-local" });
         expect(configs[0].outDir).toBe("./schemas/local");
         expect(configs[0].webservices).toEqual(["core_*"]);
 

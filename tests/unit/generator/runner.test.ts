@@ -5,7 +5,7 @@ import os from "os";
 import * as configManager from "../../../src/generator/config/config-manager";
 import * as downloader from "../../../src/generator/downloader/moodle-downloader";
 import { extractWebservice } from "@didactika/moodle-client-schemas";
-import { runGenerator, generateMasterBarrel } from "../../../src/generator/runner";
+import { runGenerator, generateMasterBarrel, planExtraction } from "../../../src/generator/runner";
 
 vi.mock("@didactika/moodle-client-schemas", async (importOriginal) => {
     const actual = await importOriginal<typeof import("@didactika/moodle-client-schemas")>();
@@ -282,7 +282,11 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
             let result;
             try {
                 process.chdir(tempDir);
-                result = await runGenerator(pkgPath, { silent: true, forceNamespaces: ["good"] });
+                result = await runGenerator(pkgPath, {
+                    silent: true,
+                    forceNamespaces: ["good"],
+                    sources: { good: { type: "moodle-local", path: path.join(tempDir, "local-moodle") } },
+                });
             } finally {
                 process.chdir(originalCwd);
             }
@@ -595,5 +599,51 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
 
         // extractWebservice must have been called because forceNamespaces bypassed cache
         expect(extractWebservice).toHaveBeenCalled();
+    });
+
+    describe("local paths", () => {
+        it("should fail with ERR_LOCAL_PATH_REQUIRED when a local namespace must be regenerated without a path", async () => {
+            vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue([
+                { namespace: "dev", source: { type: "moodle-local" }, webservices: ["*"], outDir: "./schemas" },
+            ]);
+            await expect(runGenerator(undefined, { silent: true, force: true })).rejects.toMatchObject({
+                code: "ERR_LOCAL_PATH_REQUIRED",
+                action: expect.stringContaining("MOODLE_DEV_PATH"),
+            });
+            expect(extractWebservice).not.toHaveBeenCalled();
+        });
+
+        it("should never write a local path in the barrels, which are committed", async () => {
+            const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+            await fs.mkdir(path.join(nodeModulesDir, "dist"), { recursive: true });
+            const configs = [{ namespace: "dev", source: { type: "moodle-local" as const, path: "/home/someone/moodle" }, webservices: ["*"], outDir: "./schemas" }];
+            await generateMasterBarrel(path.join(nodeModulesDir, "dist/schemas"), configs, nodeModulesDir, tempDir);
+
+            const barrel = await fs.readFile(path.join(tempDir, "schemas/index.d.ts"), "utf-8");
+            expect(barrel).toContain("Source: local");
+            expect(barrel).not.toContain("/home/someone/moodle");
+        });
+
+        it("should plan the extraction of forced namespaces and of the ones without schemas, not of synchronized ones", async () => {
+            const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+            await fs.mkdir(nodeModulesDir, { recursive: true });
+            await fs.writeFile(path.join(nodeModulesDir, "package.json"), JSON.stringify({ name: "@didactika/moodle-client" }), "utf-8");
+            for (const ns of ["synced", "forced"]) {
+                await fs.mkdir(path.join(tempDir, "schemas", ns), { recursive: true });
+                await fs.writeFile(path.join(tempDir, `schemas/${ns}/index.d.ts`), "export interface GeneratedMoodleServices {}\n", "utf-8");
+                await fs.writeFile(path.join(tempDir, `schemas/${ns}/a.webservice.d.ts`), "export interface A {}\n", "utf-8");
+            }
+            const entry = (namespace: string) => ({ namespace, source: { type: "moodle-local" as const }, webservices: ["*"], outDir: "./schemas" });
+            vi.spyOn(configManager, "loadPackageConfigDetailed").mockResolvedValue({ configs: [entry("synced"), entry("empty"), entry("forced")], invalid: [] });
+
+            const originalCwd = process.cwd();
+            try {
+                process.chdir(tempDir);
+                const planned = await planExtraction(path.join(tempDir, "package.json"), { forceNamespaces: ["forced"] });
+                expect(planned.map((e) => e.namespace).sort()).toEqual(["empty", "forced"]);
+            } finally {
+                process.chdir(originalCwd);
+            }
+        });
     });
 });
