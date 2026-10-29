@@ -145,8 +145,7 @@ Configured schema sources are saved in the `"moodle-client"` array of your `pack
     {
       "namespace": "localDev",
       "source": {
-        "type": "moodle-local",
-        "path": "../moodle-dev"
+        "type": "moodle-local"
       },
       "webservices": ["local_myplugin_*"],
       "outDir": "src/schemas"
@@ -162,7 +161,7 @@ Configured schema sources are saved in the `"moodle-client"` array of your `pack
 | `namespace` | `string` | Unique identifier on client instance (`moodle.<namespace>`); a valid identifier such as `moodle50`, not `moodle5.0`. `webservice` is reserved for the bundled namespace. |
 | `source.type` | `string` | Exactly one of `"moodle-official"`, `"moodle-local"` or `"moodle-repository"`. |
 | `source.version` | `string` | Moodle version string (required for `"moodle-official"`). |
-| `source.path` | `string` | Local directory path (required for `"moodle-local"`). |
+| `source.path` | | Not saved. The directory of a `"moodle-local"` source is given each time it is generated: `--source.path`, `MOODLE_<NAMESPACE>_PATH` or a prompt. See [Local paths](cli.md#local-paths). |
 | `source.url` | `string` | Git clone URL (required for `"moodle-repository"`). |
 | `source.branch` | `string` | Git branch or tag (optional for `"moodle-repository"`, default: `"main"`). |
 | `webservices` | `string[]` | Function matching patterns (e.g. `["*"]`). |
