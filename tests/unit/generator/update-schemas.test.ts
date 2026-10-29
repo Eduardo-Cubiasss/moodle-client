@@ -208,17 +208,10 @@ describe("moodle-update-schemas", () => {
             expect(await fs.readFile(pkgJsonPath, "utf-8")).toBe(raw);
         });
 
-        it("should read the path from MOODLE_<NAMESPACE>_PATH", async () => {
-            await writePkg([localEntry]);
-            const runner = vi.fn().mockResolvedValue(undefined);
-            await updateSchemasFromOptions({ pkgPath: pkgJsonPath, flags: { namespace: "updLocal" }, sync: true, env: { MOODLE_UPDLOCAL_PATH: os.tmpdir() }, generatorRunner: runner });
-            expect(runner.mock.calls[0]![2].sources.updLocal.path).toBe(os.tmpdir());
-        });
-
         it("should ask for the path when it is not given otherwise", async () => {
             await writePkg([localEntry]);
             const runner = vi.fn().mockResolvedValue(undefined);
-            await updateSchemasFromOptions({ pkgPath: pkgJsonPath, flags: { namespace: "updLocal" }, sync: true, env: {}, mockAnswers: [os.tmpdir()], generatorRunner: runner });
+            await updateSchemasFromOptions({ pkgPath: pkgJsonPath, flags: { namespace: "updLocal" }, sync: true, mockAnswers: [os.tmpdir()], generatorRunner: runner });
             expect(runner.mock.calls[0]![2].sources.updLocal.path).toBe(os.tmpdir());
         });
 
@@ -229,8 +222,8 @@ describe("moodle-update-schemas", () => {
             process.stdin.isTTY = false;
             try {
                 await expect(
-                    updateSchemasFromOptions({ pkgPath: pkgJsonPath, flags: { namespace: "updLocal", webservices: "core_*" }, sync: true, env: {}, generatorRunner: runner })
-                ).rejects.toMatchObject({ code: "ERR_LOCAL_PATH_REQUIRED", action: expect.stringContaining("MOODLE_UPDLOCAL_PATH") });
+                    updateSchemasFromOptions({ pkgPath: pkgJsonPath, flags: { namespace: "updLocal", webservices: "core_*" }, sync: true, generatorRunner: runner })
+                ).rejects.toMatchObject({ code: "ERR_LOCAL_PATH_REQUIRED", action: expect.stringContaining("--source.path") });
             } finally {
                 process.stdin.isTTY = wasTTY;
             }
@@ -240,7 +233,7 @@ describe("moodle-update-schemas", () => {
 
         it("should not need nor save a path when only saving changes", async () => {
             await writePkg([localEntry]);
-            await updateSchemasFromOptions({ pkgPath: pkgJsonPath, flags: { namespace: "updLocal", webservices: "core_*", sourcePath: os.tmpdir() }, env: {}, generatorRunner: vi.fn() });
+            await updateSchemasFromOptions({ pkgPath: pkgJsonPath, flags: { namespace: "updLocal", webservices: "core_*", sourcePath: os.tmpdir() }, generatorRunner: vi.fn() });
             expect((await readEntries())[0]).toEqual({ ...localEntry, webservices: ["core_*"] });
         });
 
@@ -276,7 +269,7 @@ describe("moodle-update-schemas", () => {
             const runner = vi.fn().mockResolvedValue(undefined);
             // source type local (no path asked here), webservices, outDir, synchronize: y, then the path
             const answers = ["1", "2", "core_user_*", "src/moodle", "y", os.tmpdir()];
-            await promptUpdateSchemas({ pkgPath: pkgJsonPath, mockAnswers: answers, env: {}, generatorRunner: runner });
+            await promptUpdateSchemas({ pkgPath: pkgJsonPath, mockAnswers: answers, generatorRunner: runner });
 
             expect((await readEntries())[0]).toEqual({
                 namespace: "updOfficial",
@@ -294,22 +287,10 @@ describe("moodle-update-schemas", () => {
             await writePkg([{ namespace: "updLocal", source: { type: "moodle-local" }, webservices: ["*"], outDir: "src/moodle" }]);
             const runner = vi.fn();
             // namespace, source type kept, webservices edited, outDir kept, synchronize: n (nothing else asked)
-            const result = await promptUpdateSchemas({ pkgPath: pkgJsonPath, mockAnswers: ["1", "2", "core_*", "src/moodle", "n"], env: {}, generatorRunner: runner });
+            const result = await promptUpdateSchemas({ pkgPath: pkgJsonPath, mockAnswers: ["1", "2", "core_*", "src/moodle", "n"], generatorRunner: runner });
 
             expect(result).toMatchObject({ saved: true, synchronized: false });
             expect(runner).not.toHaveBeenCalled();
-        });
-
-        it("should take the path from MOODLE_<NAMESPACE>_PATH instead of asking it", async () => {
-            await writePkg([{ namespace: "updLocal", source: { type: "moodle-local" }, webservices: ["*"], outDir: "src/moodle" }]);
-            const runner = vi.fn().mockResolvedValue(undefined);
-            await promptUpdateSchemas({
-                pkgPath: pkgJsonPath,
-                mockAnswers: ["1", "2", "*", "src/moodle", "y"],
-                env: { MOODLE_UPDLOCAL_PATH: os.tmpdir() },
-                generatorRunner: runner,
-            });
-            expect(runner.mock.calls[0]![2].sources).toEqual({ updLocal: { type: "moodle-local", path: os.tmpdir() } });
         });
 
         it("should save but not regenerate when synchronization is declined", async () => {

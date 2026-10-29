@@ -39,7 +39,6 @@ export type UpdateGeneratorRunner = (pkgPath: string, namespace: string, options
 export interface PromptUpdateSchemasOptions {
     pkgPath?: string;
     mockAnswers?: string[];
-    env?: NodeJS.ProcessEnv;
     generatorRunner?: UpdateGeneratorRunner;
 }
 
@@ -50,7 +49,6 @@ export interface UpdateSchemasFromOptions {
     sync?: boolean;
     /** Answers to the local path prompt (tests) */
     mockAnswers?: string[];
-    env?: NodeJS.ProcessEnv;
     generatorRunner?: UpdateGeneratorRunner;
 }
 
@@ -312,15 +310,15 @@ export async function updateSchemasFromOptions(options: UpdateSchemasFromOptions
 }
 
 /**
- * Gives a local entry the path to regenerate it from: `--source.path` (already in the entry),
- * MOODLE_<NAMESPACE>_PATH or a prompt; other entries are returned unchanged.
+ * Gives a local entry the path to regenerate it from: `--source.path` (already in the entry) or a
+ * prompt; other entries are returned unchanged.
  */
-async function withLocalPath(entry: MoodleSchemaConfigEntry, ctx: PromptContext, env?: NodeJS.ProcessEnv): Promise<MoodleSchemaConfigEntry> {
+async function withLocalPath(entry: MoodleSchemaConfigEntry, ctx: PromptContext): Promise<MoodleSchemaConfigEntry> {
     if (!isLocalSource(entry.source) || entry.source.path) {
         return entry;
     }
     const ask = canPrompt(ctx) ? (ns: string) => askLocalPath(ctx, ns) : undefined;
-    return { ...entry, source: { type: "moodle-local", path: await resolveLocalPath(entry.namespace, { env, ask }) } };
+    return { ...entry, source: { type: "moodle-local", path: await resolveLocalPath(entry.namespace, { ask }) } };
 }
 
 async function withLocalPathForOneLine(entry: MoodleSchemaConfigEntry, options: UpdateSchemasFromOptions): Promise<MoodleSchemaConfigEntry> {
@@ -328,7 +326,7 @@ async function withLocalPathForOneLine(entry: MoodleSchemaConfigEntry, options: 
     const needsPrompt = isLocalSource(entry.source) && !entry.source.path;
     const rl = !isMock && needsPrompt && process.stdin.isTTY ? createPromptInterface() : undefined;
     try {
-        return await withLocalPath(entry, { rl, mockAnswers: options.mockAnswers }, options.env);
+        return await withLocalPath(entry, { rl, mockAnswers: options.mockAnswers });
     } finally {
         rl?.close();
     }
@@ -491,7 +489,7 @@ export async function promptUpdateSchemas(options?: PromptUpdateSchemasOptions):
         console.log(SEPARATOR);
         const sync = await askYesNo(ctx, `Do you want to synchronize the schemas for ${namespace}? (y/n)`);
         // A local source needs its path to regenerate; it is asked now, before stdin is released
-        const toGenerate = sync ? await withLocalPath(updated, ctx, options?.env) : updated;
+        const toGenerate = sync ? await withLocalPath(updated, ctx) : updated;
         if (rl) {
             rl.close();
         }

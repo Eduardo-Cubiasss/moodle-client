@@ -608,7 +608,7 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
             ]);
             await expect(runGenerator(undefined, { silent: true, force: true })).rejects.toMatchObject({
                 code: "ERR_LOCAL_PATH_REQUIRED",
-                action: expect.stringContaining("MOODLE_DEV_PATH"),
+                action: expect.stringContaining("Run the command in a terminal"),
             });
             expect(extractWebservice).not.toHaveBeenCalled();
         });

@@ -131,10 +131,9 @@ async function promptOfficialSource(
  */
 async function promptLocalSource(
     ctx: PromptContext,
-    namespace: string,
-    env?: NodeJS.ProcessEnv
+    namespace: string
 ): Promise<MoodleSchemaConfigEntry> {
-    const localPath = await resolveLocalPath(namespace, { env, ask: (ns) => askLocalPath(ctx, ns) });
+    const localPath = await askLocalPath(ctx, namespace);
 
     console.log(SEPARATOR);
     let webservices: string[] = ["*"];
@@ -260,7 +259,6 @@ export type CreateGeneratorRunner = (pkgPath: string, options: RunGeneratorOptio
 export interface PromptCreateSchemasOptions {
     pkgPath?: string;
     mockAnswers?: string[];
-    env?: NodeJS.ProcessEnv;
     generatorRunner?: CreateGeneratorRunner;
 }
 
@@ -268,7 +266,6 @@ export interface CreateSchemasFromOptions {
     pkgPath?: string;
     flags: SchemaEntryFlags;
     mockAnswers?: string[];
-    env?: NodeJS.ProcessEnv;
     generatorRunner?: CreateGeneratorRunner;
 }
 
@@ -375,7 +372,7 @@ async function persistAndGenerate(
 /**
  * One-line mode of `moodle-create-schemas`: builds the entry from flags, appends it to
  * package.json and generates it, with the same rollback as the wizard. A local source takes its
- * path from `--source.path`, MOODLE_<NAMESPACE>_PATH, or a prompt when there is a terminal.
+ * path from `--source.path`, or a prompt when there is a terminal.
  */
 export async function createSchemasFromOptions(
     options: CreateSchemasFromOptions
@@ -388,7 +385,7 @@ export async function createSchemasFromOptions(
         const ctx: PromptContext = { rl, mockAnswers: options.mockAnswers };
         try {
             const ask = canPrompt(ctx) ? (namespace: string) => askLocalPath(ctx, namespace) : undefined;
-            entry = { ...entry, source: { type: "moodle-local", path: await resolveLocalPath(entry.namespace, { env: options.env, ask }) } };
+            entry = { ...entry, source: { type: "moodle-local", path: await resolveLocalPath(entry.namespace, { ask }) } };
         } finally {
             rl?.close();
         }
@@ -459,7 +456,7 @@ export async function promptCreateSchemas(
                 }
             );
 
-            const newEntry = await promptSourceFields(ctx, namespace, sourceType, options?.env);
+            const newEntry = await promptSourceFields(ctx, namespace, sourceType);
             sessionCreatedEntries.push(newEntry);
 
             // 3. Create another schema?
@@ -503,14 +500,13 @@ export async function promptCreateSchemas(
 function promptSourceFields(
     ctx: PromptContext,
     namespace: string,
-    sourceType: SourceType,
-    env?: NodeJS.ProcessEnv
+    sourceType: SourceType
 ): Promise<MoodleSchemaConfigEntry> {
     switch (sourceType) {
         case "moodle-official":
             return promptOfficialSource(ctx, namespace);
         case "moodle-local":
-            return promptLocalSource(ctx, namespace, env);
+            return promptLocalSource(ctx, namespace);
         case "moodle-repository":
             return promptRepositorySource(ctx, namespace);
         default: {

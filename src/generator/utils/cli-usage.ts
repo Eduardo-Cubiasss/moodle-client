@@ -13,7 +13,7 @@ const ENTRY_OPTIONS = `Schema options (mirror the keys of a "moodle-client" entr
   --outDir <dir>              Output directory, required for moodle-repository and moodle-local`;
 
 const LOCAL_PATH_NOTE = `The path of a moodle-local source is never saved in package.json. Without
---source.path it is read from MOODLE_<NAMESPACE>_PATH (e.g. MOODLE_LOCALDEV_PATH), or asked.`;
+--source.path it is asked.`;
 
 const COMMON_OPTIONS = `  --config <path>             package.json to read and write (default ./package.json)
   -h, --help                  Show this help`;
@@ -23,8 +23,8 @@ export const GENERATE_USAGE = `Usage: moodle-generate-schemas [options]
 Generates the TypeScript declarations of every namespace in package.json.
 Namespaces with schemas already in their outDir are synchronized from there.
 
-Regenerating a moodle-local namespace needs its path, which is never saved: it is read
-from MOODLE_<NAMESPACE>_PATH (e.g. MOODLE_LOCALDEV_PATH) or asked.
+Regenerating a moodle-local namespace needs its path, which is never saved: it is asked
+before generating.
 
 Options:
   --namespace <name>          Regenerate only this namespace from scratch (repeatable, or a,b)
@@ -33,8 +33,7 @@ ${COMMON_OPTIONS}
 
 Examples:
   npx moodle-generate-schemas
-  npx moodle-generate-schemas --namespace myRepo
-  MOODLE_LOCALDEV_PATH=~/moodle npx moodle-generate-schemas --force`;
+  npx moodle-generate-schemas --namespace myRepo`;
 
 export const CREATE_USAGE = `Usage: moodle-create-schemas [options]
 

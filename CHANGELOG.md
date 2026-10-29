@@ -40,7 +40,7 @@ unchanged, and `call()` and `moodleClient()` go through the same path.
   - `moodle-repository`: a Git repository and branch;
   - `moodle-local`: a directory. Its path is never saved in `package.json`, since it
     differs on every machine: it is given each time the namespace is generated, with
-    `--source.path`, `MOODLE_<NAMESPACE>_PATH` or a prompt.
+    `--source.path` or a prompt.
 
   | Command | |
   | --- | --- |

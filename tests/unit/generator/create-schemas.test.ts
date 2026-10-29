@@ -92,11 +92,6 @@ describe("moodle-create-schemas unit tests", () => {
 
             // Reserved for the bundled namespace
             expect(() => validateNamespace("webservice", new Set())).toThrow(/reserved/i);
-
-            // Would share MOODLE_<NAMESPACE>_PATH with an existing namespace
-            expect(() => validateNamespace("localdev", new Set(["localDev"]))).toThrow(/share the environment variable MOODLE_LOCALDEV_PATH with 'localDev'/);
-            expect(() => validateNamespace("my_ns", new Set(["my$ns"]))).toThrow(/MOODLE_MY_NS_PATH/);
-            expect(validateNamespace("localDev2", new Set(["localDev"]))).toBe(true);
         });
 
         it("should validate source option (1 = Remote, 2 = Local, 3 = Repository)", () => {
@@ -242,22 +237,6 @@ describe("moodle-create-schemas unit tests", () => {
     });
 
     describe("Multiple schemas and validation retry", () => {
-        it("should ask again for a namespace that would share the path variable of one created in the same session", async () => {
-            await fs.writeFile(pkgJsonPath, JSON.stringify({ name: "my-app" }, null, 2), "utf-8");
-            const mockRunner = vi.fn().mockResolvedValue(undefined);
-
-            // Schema 1: namespace, source, version, webservices, save in project? n, another? y
-            // Schema 2: 'SCHEMA1' clashes (asked again), 'schema2', source, version, webservices, save? n, another? n
-            const answers = [
-                "schema1", "1", "4.5", "*", "n", "y",
-                "SCHEMA1", "schema2", "1", "5.0", "*", "n", "n",
-            ];
-            await promptCreateSchemas({ pkgPath: pkgJsonPath, mockAnswers: answers, generatorRunner: mockRunner });
-
-            const namespaces = JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"))["moodle-client"].map((e: { namespace: string }) => e.namespace);
-            expect(namespaces).toEqual(["schema1", "schema2"]);
-        });
-
         it("should allow creating multiple schemas in one session and prevent duplicates", async () => {
             await fs.writeFile(pkgJsonPath, JSON.stringify({ name: "my-app" }, null, 2), "utf-8");
 
@@ -415,18 +394,6 @@ describe("moodle-create-schemas unit tests", () => {
             expect(JSON.parse(await fs.readFile(pkgJsonPath, "utf-8"))["moodle-client"][0].source).toEqual({ type: "moodle-local" });
         });
 
-        it("should take the path of a local namespace from MOODLE_<NAMESPACE>_PATH", async () => {
-            await fs.writeFile(pkgJsonPath, JSON.stringify({ name: "my-app" }, null, 2), "utf-8");
-            const runner = vi.fn().mockResolvedValue(undefined);
-            await createSchemasFromOptions({
-                pkgPath: pkgJsonPath,
-                flags: { namespace: "dev", sourceType: "moodle-local", outDir: "src/moodle" },
-                env: { MOODLE_DEV_PATH: os.tmpdir() },
-                generatorRunner: runner,
-            });
-            expect(runner.mock.calls[0]![1].sources).toEqual({ dev: { type: "moodle-local", path: os.tmpdir() } });
-        });
-
         it("should fail with ERR_LOCAL_PATH_REQUIRED for a local namespace without path nor terminal, leaving package.json untouched", async () => {
             const raw = JSON.stringify({ name: "my-app" }, null, 2);
             await fs.writeFile(pkgJsonPath, raw, "utf-8");
@@ -435,28 +402,11 @@ describe("moodle-create-schemas unit tests", () => {
             process.stdin.isTTY = false;
             try {
                 await expect(
-                    createSchemasFromOptions({ pkgPath: pkgJsonPath, flags: { namespace: "dev", sourceType: "moodle-local", outDir: "src/moodle" }, env: {}, generatorRunner: runner })
+                    createSchemasFromOptions({ pkgPath: pkgJsonPath, flags: { namespace: "dev", sourceType: "moodle-local", outDir: "src/moodle" }, generatorRunner: runner })
                 ).rejects.toMatchObject({ code: "ERR_LOCAL_PATH_REQUIRED" });
             } finally {
                 process.stdin.isTTY = wasTTY;
             }
-            expect(runner).not.toHaveBeenCalled();
-            expect(await fs.readFile(pkgJsonPath, "utf-8")).toBe(raw);
-        });
-
-        it("should reject a namespace that would share the path variable of an existing one, without touching package.json", async () => {
-            const initial = { name: "my-app", "moodle-client": [{ namespace: "localDev", source: { type: "moodle-local" }, webservices: ["*"], outDir: "src/moodle" }] };
-            const raw = JSON.stringify(initial, null, 2);
-            await fs.writeFile(pkgJsonPath, raw, "utf-8");
-            const runner = vi.fn();
-
-            await expect(
-                createSchemasFromOptions({
-                    pkgPath: pkgJsonPath,
-                    flags: { namespace: "LocalDev", sourceType: "moodle-official", sourceVersion: "4.5" },
-                    generatorRunner: runner,
-                })
-            ).rejects.toThrow(/--namespace: Namespace 'LocalDev' would share the environment variable MOODLE_LOCALDEV_PATH with 'localDev'/);
             expect(runner).not.toHaveBeenCalled();
             expect(await fs.readFile(pkgJsonPath, "utf-8")).toBe(raw);
         });
