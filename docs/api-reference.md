@@ -337,7 +337,7 @@ interface MoodleRepositorySource {
 
 interface MoodleLocalSource {
   type: "moodle-local";
-  path: string;    // Filesystem path to Moodle installation root containing version.php
+  path?: string;   // Moodle root containing version.php. Never saved: given when generating
 }
 ```
 

@@ -400,8 +400,7 @@ Configurations are declared under the `"moodle-client"` array in your `package.j
     {
       "namespace": "localDev",
       "source": {
-        "type": "moodle-local",
-        "path": "~/moodle"
+        "type": "moodle-local"
       },
       "webservices": ["core_*", "local_*"],
       "outDir": "src/schemas"
@@ -416,7 +415,7 @@ Configurations are declared under the `"moodle-client"` array in your `package.j
 - `source` (object, required). `type` is one of exactly three values:
   - **Official release**: `{ "type": "moodle-official", "version": "4.5" }`
   - **Remote Git repository**: `{ "type": "moodle-repository", "url": "https://github.com/my-org/moodle.git", "branch": "main" }`
-  - **Local instance**: `{ "type": "moodle-local", "path": "/path/to/moodle" }`
+  - **Local instance**: `{ "type": "moodle-local" }`. Its path differs on every machine, so it is **never saved**: it is given each time the namespace is generated, with `--source.path`, the `MOODLE_<NAMESPACE>_PATH` environment variable (e.g. `MOODLE_LOCALDEV_PATH`), or a prompt. Without a terminal, a missing path fails with `ERR_LOCAL_PATH_REQUIRED`. See [Local paths](docs/cli.md#local-paths).
 
   The short names used by pre-release builds (`moodle`, `official`, `repository`, `remote`, `git`, `local`) are rejected with an error that names the replacement; `npx moodle-update-schemas --namespace <name> --sync` migrates an old entry.
 - `webservices` (string[], required): Service names or wildcard patterns to include (e.g. `["*"]`, `["core_*"]`, `["mod_quiz_*"]`).
@@ -474,7 +473,7 @@ The generator emits clear, actionable error blocks:
 | `ERR_SYNC_FAILED` | Schema Synchronization Failed | `moodle-update-schemas` saved the configuration but regeneration failed; the previous schemas were restored. Fix the cause and run `npx moodle-generate-schemas --namespace <name>`. |
 | `ERR_MOODLE_VERSION_UNSUPPORTED` | Unsupported Moodle Version | Configured Moodle version is lower than 2.0. Set `"version"` to a supported version (e.g. `"4.5"`). |
 | `ERR_PHP_NOT_FOUND` | PHP CLI Not Found | `php` binary was not found in system `PATH`. Install PHP 8.0 or higher. |
-| `ERR_MOODLE_PATH_NOT_ROOT` | Invalid Moodle Root Directory | The directory specified in `source.path` has no `version.php`. Point directly to the Moodle installation root. |
+| `ERR_MOODLE_PATH_NOT_ROOT` | Invalid Moodle Root Directory | The local path given has no `version.php`. Point directly to the Moodle installation root. |
 | `ERR_NO_SERVICES_FOUND` | No Web Services Found | The codebase contains no `db/services.php` files. Verify that the Moodle installation is complete. |
 | `ERR_SERVICE_NOT_FOUND` | Web Service Not Found | A pattern in `webservices` array did not match any declared web service. |
 

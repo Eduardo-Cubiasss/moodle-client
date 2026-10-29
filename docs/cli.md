@@ -31,6 +31,7 @@ with `0` on success and `1` on any error, after printing it in the format descri
 
 ## Contents
 
+- [Local paths](#local-paths)
 - [Schema options](#schema-options)
 - [Source types](#source-types)
 - [Namespace names](#namespace-names)
@@ -40,6 +41,34 @@ with `0` on success and `1` on any error, after printing it in the format descri
 - [`moodle-generate-schemas`](#moodle-generate-schemas)
 - [Where files are written](#where-files-are-written)
 - [Running inside Docker](#running-inside-docker)
+
+---
+
+## Local paths
+
+The path of a `moodle-local` source is **never saved** in `package.json`: it is different
+on every machine. Its entry keeps only `{ "type": "moodle-local" }`, and the path is given
+each time the namespace has to be generated (`moodle-generate-schemas --force` or
+`--namespace`, a namespace without schemas in its `outDir`, `moodle-create-schemas`, and
+`moodle-update-schemas --sync`). It comes from, in this order:
+
+1. `--source.path <dir>` (`create` and `update`);
+2. the `MOODLE_<NAMESPACE>_PATH` environment variable, with the namespace in upper case and
+   any character other than a letter, digit or `_` replaced by `_` (`localDev` →
+   `MOODLE_LOCALDEV_PATH`, `my$ns` → `MOODLE_MY_NS_PATH`). Its name only depends on the
+   namespace, so it can be set before the namespace is created;
+3. a question in the terminal.
+
+Without a terminal to ask on (CI, a script, `docker exec` without `-t`), a missing path fails
+with `ERR_LOCAL_PATH_REQUIRED` instead of waiting for an answer:
+
+```bash
+MOODLE_LOCALDEV_PATH=~/moodle npx moodle-generate-schemas --force
+```
+
+Synchronizing schemas that are already in `outDir` (a plain `moodle-generate-schemas`) never
+asks for it. A `path` saved by an older version is ignored, and dropped the next time
+`moodle-update-schemas` saves that entry.
 
 ---
 
@@ -55,7 +84,7 @@ with `0` on success and `1` on any error, after printing it in the format descri
 | `--source.version <x.y>` | `source.version` | `moodle-official` only. `4.5.2` is stored as `4.5`. Must be 2.0 or later. |
 | `--source.url <url>` | `source.url` | `moodle-repository` only. `http://`, `https://`, `git@` or `ssh://`. |
 | `--source.branch <name>` | `source.branch` | `moodle-repository` only. Branch or tag; defaults to `main`. |
-| `--source.path <dir>` | `source.path` | `moodle-local` only. Must exist. `~/` is expanded. |
+| `--source.path <dir>` | | `moodle-local` only. Must exist. `~/` is expanded. **Never saved**: see [Local paths](#local-paths). |
 | `--webservices <list>` | `webservices` | Comma-separated names or `prefix_*` patterns. Defaults to `*`. Quote it in the shell: `"core_*,local_*"`. |
 | `--outDir <dir>` | `outDir` | Required for `moodle-repository` and `moodle-local`. |
 | `--config <path>` | | The `package.json` to read and write; defaults to `./package.json`. |
@@ -75,7 +104,7 @@ Only three values are accepted for `source.type`:
 | --- | --- | --- | --- |
 | `moodle-official` | `version` | | optional |
 | `moodle-repository` | `url` | `branch` (default `main`) | required |
-| `moodle-local` | `path` | | required |
+| `moodle-local` | | (the path is never saved) | required |
 
 The short names used by pre-release builds are rejected with `ERR_CONFIG_INVALID_SOURCE_TYPE`. The
 error names the replacement for each one:
@@ -101,6 +130,12 @@ generated type names. It must therefore be a valid JavaScript identifier:
 
 `moodle50`, `moodle5_0` and `localDev` are valid. `moodle5.0`, `local-dev` and `5moodle`
 are not.
+
+Two namespaces cannot share the same `MOODLE_<NAMESPACE>_PATH` variable (see
+[Local paths](#local-paths)), so a new name must differ from the existing ones in more than
+upper or lower case and symbols: with `localDev` configured, `localdev` and `LOCALDEV` are
+rejected (both would use `MOODLE_LOCALDEV_PATH`), and `localDev2` is accepted. This applies
+to every source type, since a namespace can become local later with `moodle-update-schemas`.
 
 `webservice` is **reserved**. It is the namespace bundled with the package (Moodle 4.5),
 part of the library rather than of your configuration:
@@ -146,6 +181,8 @@ npx moodle-create-schemas --namespace localDev \
   `--namespace`, `--source.type` and the fields that type requires; `--webservices`
   defaults to `*`.
 - **The wizard** asks the same questions and can create several namespaces in one session.
+- **A local source** is generated from the path given (`--source.path`, `MOODLE_<NAMESPACE>_PATH`
+  or the wizard's question), and saved without it.
 
 If generation fails (bad credentials, unreachable host, wrong path…), `package.json` is
 restored exactly as it was, and the directories created for the new namespace are
@@ -194,6 +231,10 @@ It starts when `--namespace` is given, and only the options you pass change.
 | field options | saves the changes only, and prints how to synchronize later |
 | `--namespace` and `--sync` only | regenerates the namespace with its current configuration |
 | `--namespace` only | nothing, unless the entry used an old source type: then the migrated type is saved |
+
+A local source is saved without its path. To regenerate it, `--sync` takes the path from
+`--source.path`, `MOODLE_<NAMESPACE>_PATH` or a question; without `--sync`, `--source.path`
+is not used.
 
 ### Wizard
 
@@ -322,6 +363,13 @@ directories are left alone.
 ---
 
 ## Running inside Docker
+
+Without a terminal attached, regenerating a local namespace cannot ask for its path: pass
+it in the environment, with the path as the container sees it:
+
+```bash
+docker exec -e MOODLE_LOCALDEV_PATH=/var/www/moodle <container> npx moodle-generate-schemas --force
+```
 
 The commands write into `node_modules/@didactika/moodle-client/dist/schemas`. If you run
 them in a container as `root` on a mounted project, those files end up owned by root.
