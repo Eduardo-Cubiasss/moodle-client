@@ -56,6 +56,7 @@ export interface RunGeneratorResult {
 export interface RunGeneratorOptions {
     silent?: boolean;
     force?: boolean;
+    namespaces?: string[];
     forceNamespaces?: string[];
     /**
      * Source to generate each namespace from, overriding package.json. This is how a local source
@@ -578,12 +579,13 @@ async function loadRunConfigs(
     configPath: string | undefined,
     options: RunGeneratorOptions | undefined
 ): Promise<{ configs: MoodleSchemaConfigEntry[]; skipped: InvalidConfigEntry[] }> {
-    const loaded = await loadConfigsForRun(configPath, options?.forceNamespaces);
+    const targeted = options?.namespaces ?? options?.forceNamespaces;
+    const loaded = await loadConfigsForRun(configPath, targeted);
     const configs = loaded.configs.map((entry) => {
         const source = options?.sources?.[entry.namespace];
         return source ? { ...entry, source } : entry;
     });
-    assertNamespacesConfigured(options?.forceNamespaces, configs);
+    assertNamespacesConfigured(targeted, configs);
     return { configs, skipped: loaded.skipped };
 }
 
@@ -597,7 +599,12 @@ async function needsExtraction(
     pkgDir: string,
     options: RunGeneratorOptions | undefined
 ): Promise<boolean> {
-    if (options?.force || options?.forceNamespaces?.includes(entry.namespace)) {
+    const targeted = options?.namespaces ?? options?.forceNamespaces;
+    if (targeted && targeted.length > 0 && !targeted.includes(entry.namespace)) {
+        return false;
+    }
+    const isForced = Boolean(options?.force) || Boolean(options?.forceNamespaces?.includes(entry.namespace));
+    if (isForced) {
         return true;
     }
     if (entry.outDir) {
@@ -709,8 +716,13 @@ export async function runGenerator(
     }
 
     // Verify that configured outDir paths exist or are writable
+    const targeted = options?.namespaces ?? options?.forceNamespaces;
+    const configsToProcess = targeted && targeted.length > 0
+        ? configs.filter((entry) => targeted.includes(entry.namespace))
+        : configs;
+
     if (configDir) {
-        for (const entry of configs) {
+        for (const entry of configsToProcess) {
             if (entry.outDir) {
                 const outDirPath = path.resolve(configDir, entry.outDir);
                 await verifyOutDirWritable(outDirPath);
@@ -928,7 +940,7 @@ export async function runGenerator(
     };
 
     // Execute concurrently with p-limit(2)
-    await Promise.all(configs.map((entry) => limit(() => processSingleSchema(entry))));
+    await Promise.all(configsToProcess.map((entry) => limit(() => processSingleSchema(entry))));
 
     // Generate aggregated master barrel
     const barrelConfigs = [...configs, ...(await keptSkippedEntries(skipped, targetSchemasDir))];

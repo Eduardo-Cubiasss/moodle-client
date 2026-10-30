@@ -601,6 +601,52 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
         expect(extractWebservice).toHaveBeenCalled();
     });
 
+    it("should synchronize rather than extract when namespace is targeted in namespaces without force", async () => {
+        const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+        const nsDistDir = path.join(nodeModulesDir, "dist/schemas/cachedNs");
+        await fs.mkdir(nsDistDir, { recursive: true });
+        await fs.writeFile(path.join(nsDistDir, "index.d.ts"), "// cached", "utf-8");
+        await fs.writeFile(path.join(nsDistDir, "test.webservice.d.ts"), "// cached", "utf-8");
+
+        const outDir = path.join(tempDir, "schemas/cachedNs");
+        await fs.mkdir(outDir, { recursive: true });
+        await fs.writeFile(path.join(outDir, "index.d.ts"), "export interface Cached {}\n", "utf-8");
+        await fs.writeFile(path.join(outDir, "test.webservice.d.ts"), "export interface Test {}\n", "utf-8");
+
+        const fakeConfigs: configManager.MoodleSchemaConfigEntry[] = [
+            {
+                namespace: "cachedNs",
+                source: {
+                    type: "moodle-official",
+                    version: "4.4",
+                },
+                webservices: ["core_user_*"],
+                outDir: "schemas",
+            },
+        ];
+
+        vi.spyOn(configManager, "loadPackageConfigDetailed").mockResolvedValue({ configs: fakeConfigs, invalid: [] });
+        vi.mocked(extractWebservice).mockResolvedValue({ schemas: [], errors: [] });
+
+        await fs.writeFile(
+            path.join(nodeModulesDir, "package.json"),
+            JSON.stringify({ name: "@didactika/moodle-client" }),
+            "utf-8"
+        );
+        await fs.writeFile(path.join(nodeModulesDir, "dist/index.d.ts"), "// index\n", "utf-8");
+
+        const originalCwd = process.cwd();
+        try {
+            process.chdir(tempDir);
+            await runGenerator(undefined, { silent: true, namespaces: ["cachedNs"] });
+        } finally {
+            process.chdir(originalCwd);
+        }
+
+        // extractWebservice must NOT have been called because outDir has schemas and force is not set
+        expect(extractWebservice).not.toHaveBeenCalled();
+    });
+
     describe("local paths", () => {
         it("should fail with ERR_LOCAL_PATH_REQUIRED when a local namespace must be regenerated without a path", async () => {
             vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue([
@@ -624,7 +670,7 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
             expect(barrel).not.toContain("/home/someone/moodle");
         });
 
-        it("should plan the extraction of forced namespaces and of the ones without schemas, not of synchronized ones", async () => {
+        it("should plan the extraction only of targeted namespaces when forceNamespaces is given", async () => {
             const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
             await fs.mkdir(nodeModulesDir, { recursive: true });
             await fs.writeFile(path.join(nodeModulesDir, "package.json"), JSON.stringify({ name: "@didactika/moodle-client" }), "utf-8");
@@ -634,16 +680,74 @@ describe("Runner Multi-Schema Orchestration (p-limit: 2)", () => {
                 await fs.writeFile(path.join(tempDir, `schemas/${ns}/a.webservice.d.ts`), "export interface A {}\n", "utf-8");
             }
             const entry = (namespace: string) => ({ namespace, source: { type: "moodle-local" as const }, webservices: ["*"], outDir: "./schemas" });
-            vi.spyOn(configManager, "loadPackageConfigDetailed").mockResolvedValue({ configs: [entry("synced"), entry("empty"), entry("forced")], invalid: [] });
+            const mockEntries = [entry("synced"), entry("empty"), entry("forced")];
+            vi.spyOn(configManager, "loadPackageConfigDetailed").mockResolvedValue({ configs: mockEntries, invalid: [] });
+            vi.spyOn(configManager, "loadPackageConfig").mockResolvedValue(mockEntries);
 
             const originalCwd = process.cwd();
             try {
                 process.chdir(tempDir);
-                const planned = await planExtraction(path.join(tempDir, "package.json"), { forceNamespaces: ["forced"] });
-                expect(planned.map((e) => e.namespace).sort()).toEqual(["empty", "forced"]);
+                const plannedTargeted = await planExtraction(path.join(tempDir, "package.json"), { forceNamespaces: ["forced"] });
+                expect(plannedTargeted.map((e) => e.namespace)).toEqual(["forced"]);
+
+                const plannedFull = await planExtraction(path.join(tempDir, "package.json"), {});
+                expect(plannedFull.map((e) => e.namespace)).toEqual(["empty"]);
             } finally {
                 process.chdir(originalCwd);
             }
+        });
+
+        it("should only process the targeted namespaces when forceNamespaces is given, ignoring other namespaces", async () => {
+            const nodeModulesDir = path.join(tempDir, "node_modules/@didactika/moodle-client");
+            await fs.mkdir(path.join(nodeModulesDir, "dist"), { recursive: true });
+            await fs.writeFile(path.join(nodeModulesDir, "package.json"), JSON.stringify({ name: "@didactika/moodle-client" }), "utf-8");
+            await fs.writeFile(path.join(nodeModulesDir, "dist/index.d.ts"), "// index\n", "utf-8");
+
+            const localMoodle = path.join(tempDir, "local-moodle");
+            await fs.mkdir(localMoodle, { recursive: true });
+            await fs.writeFile(path.join(localMoodle, "version.php"), "<?php $release = '4.5';\n", "utf-8");
+
+            const entry = (namespace: string, source: any) => ({
+                namespace,
+                source,
+                webservices: ["*"],
+                outDir: "./schemas",
+            });
+
+            const otherRepoEntry = entry("otherRepo", {
+                type: "moodle-repository",
+                url: "https://invalid-remote-url-that-would-fail.git",
+                branch: "main",
+            });
+            const targetedEntry = entry("myTarget", {
+                type: "moodle-local",
+                path: localMoodle,
+            });
+
+            vi.spyOn(configManager, "loadPackageConfigDetailed").mockResolvedValue({
+                configs: [otherRepoEntry, targetedEntry],
+                invalid: [],
+            });
+            vi.mocked(extractWebservice).mockResolvedValue({ schemas: [], errors: [] });
+
+            const originalCwd = process.cwd();
+            try {
+                process.chdir(tempDir);
+                // Running with forceNamespaces: ["myTarget"] must NOT clone or fail on otherRepo
+                await runGenerator(undefined, {
+                    silent: true,
+                    forceNamespaces: ["myTarget"],
+                    sources: { myTarget: { type: "moodle-local", path: localMoodle } },
+                });
+            } finally {
+                process.chdir(originalCwd);
+            }
+
+            expect(extractWebservice).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    moodlePath: localMoodle,
+                })
+            );
         });
     });
 });

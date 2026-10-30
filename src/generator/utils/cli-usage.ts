@@ -20,20 +20,22 @@ const COMMON_OPTIONS = `  --config <path>             package.json to read and w
 
 export const GENERATE_USAGE = `Usage: moodle-generate-schemas [options]
 
-Generates the TypeScript declarations of every namespace in package.json.
+Generates the TypeScript declarations of namespaces in package.json.
 Namespaces with schemas already in their outDir are synchronized from there.
 
 Regenerating a moodle-local namespace needs its path, which is never saved: it is asked
-before generating.
+before generating when extraction is needed.
 
 Options:
-  --namespace <name>          Regenerate only this namespace from scratch (repeatable, or a,b)
-  -f, --force                 Regenerate every namespace from scratch
+  --namespace <name>          Process only this namespace (repeatable, or a,b)
+  -f, --force                 Regenerate from scratch (bypasses cache)
 ${COMMON_OPTIONS}
 
 Examples:
   npx moodle-generate-schemas
-  npx moodle-generate-schemas --namespace myRepo`;
+  npx moodle-generate-schemas --namespace myRepo
+  npx moodle-generate-schemas --force
+  npx moodle-generate-schemas --force --namespace myRepo`;
 
 export const CREATE_USAGE = `Usage: moodle-create-schemas [options]
 

@@ -24,7 +24,7 @@ export interface GenerateSchemasOptions {
  * then runs the generator.
  */
 export async function generateSchemas(options: GenerateSchemasOptions): Promise<void> {
-    const runOptions: RunGeneratorOptions = { force: options.force, forceNamespaces: options.namespaces };
+    const runOptions: RunGeneratorOptions = { force: options.force, namespaces: options.namespaces };
     const planned = await planExtraction(options.configPath, runOptions);
 
     const isMock = Boolean(options.mockAnswers && options.mockAnswers.length > 0);
