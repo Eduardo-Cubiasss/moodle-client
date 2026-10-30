@@ -50,7 +50,22 @@ describe("moodle-generate-schemas (local paths)", () => {
     it("should not ask anything when only synchronizing existing schemas", async () => {
         const runner = vi.fn().mockResolvedValue(undefined);
         await generateSchemas({ configPath: pkgJsonPath, generatorRunner: runner });
-        expect(runner).toHaveBeenCalledWith(pkgJsonPath, { force: undefined, forceNamespaces: undefined, sources: {} });
+        expect(runner).toHaveBeenCalledWith(pkgJsonPath, { force: undefined, namespaces: undefined, sources: {} });
+    });
+
+    it("should not ask for a path and only sync when targeting an existing local namespace without --force", async () => {
+        const runner = vi.fn().mockResolvedValue(undefined);
+        await generateSchemas({ configPath: pkgJsonPath, namespaces: ["dev"], generatorRunner: runner });
+        expect(runner).toHaveBeenCalledWith(pkgJsonPath, { force: undefined, namespaces: ["dev"], sources: {} });
+    });
+
+    it("should ask for a path when targeting a local namespace with --force", async () => {
+        const moodleDir = await makeMoodleDir(tempDir);
+        const runner = vi.fn().mockResolvedValue(undefined);
+
+        await generateSchemas({ configPath: pkgJsonPath, namespaces: ["dev"], force: true, mockAnswers: [moodleDir], generatorRunner: runner });
+
+        expect(runner.mock.calls[0]![1].sources).toEqual({ dev: { type: "moodle-local", path: moodleDir } });
     });
 
     it("should ask the path of every local namespace regenerated with --force, and only of those", async () => {

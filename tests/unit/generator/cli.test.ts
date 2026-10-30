@@ -51,6 +51,24 @@ describe("CLI argument parser", () => {
         expect(res2.force).toBe(true);
         expect(res2.configPath).toBe("custom.config.json");
     });
+
+    it("should parse --force and --namespace together in any order", () => {
+        const res1 = parseCliArgs(["--force", "--namespace", "local5"]);
+        expect(res1.force).toBe(true);
+        expect(res1.namespaces).toEqual(["local5"]);
+
+        const res2 = parseCliArgs(["--namespace", "local5", "--force"]);
+        expect(res2.force).toBe(true);
+        expect(res2.namespaces).toEqual(["local5"]);
+
+        const res3 = parseCliArgs(["-f", "--namespace=local5"]);
+        expect(res3.force).toBe(true);
+        expect(res3.namespaces).toEqual(["local5"]);
+
+        const res4 = parseCliArgs(["--namespace", "local5", "-f"]);
+        expect(res4.force).toBe(true);
+        expect(res4.namespaces).toEqual(["local5"]);
+    });
 });
 
 describe("Create and Delete CLI argument parsers", () => {

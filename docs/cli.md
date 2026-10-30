@@ -5,10 +5,10 @@ Four commands manage the schema namespaces declared under `"moodle-client"` in
 
 | Command | What it does |
 | --- | --- |
-| [`moodle-create-schemas`](#moodle-create-schemas) | adds a namespace and generates it |
+| [`moodle-create-schemas`](#moodle-create-schemas) | adds a namespace and generates only that one |
 | [`moodle-update-schemas`](#moodle-update-schemas) | changes a namespace and, with `--sync`, regenerates only that one |
 | [`moodle-delete-schemas`](#moodle-delete-schemas) | removes a namespace and its generated files |
-| [`moodle-generate-schemas`](#moodle-generate-schemas) | generates every namespace (or the ones you name) |
+| [`moodle-generate-schemas`](#moodle-generate-schemas) | generates all namespaces (or only the ones you specify with `--namespace`) |
 
 `create`, `update` and `delete` work in two modes:
 
@@ -48,8 +48,8 @@ with `0` on success and `1` on any error, after printing it in the format descri
 
 The path of a `moodle-local` source is **never saved** in `package.json`: it is different
 on every machine. Its entry keeps only `{ "type": "moodle-local" }`, and the path is given
-each time the namespace has to be generated (`moodle-generate-schemas --force` or
-`--namespace`, a namespace without schemas in its `outDir`, `moodle-create-schemas`, and
+each time the namespace has to be extracted from scratch (`moodle-generate-schemas --force`,
+a namespace without schemas in its `outDir`, `moodle-create-schemas`, and
 `moodle-update-schemas --sync`). It comes from:
 
 - `--source.path <dir>`, in `create` and `update`;
@@ -65,9 +65,9 @@ Without a terminal to ask on (CI, a script, `docker exec` without `-t`), a missi
 with `ERR_LOCAL_PATH_REQUIRED` instead of waiting for an answer. The path is never read from
 an environment variable or a `.env` file.
 
-Synchronizing schemas that are already in `outDir` (a plain `moodle-generate-schemas`) never
-asks for it. A `path` saved by an older version is ignored, and dropped the next time
-`moodle-update-schemas` saves that entry.
+Synchronizing schemas that are already in `outDir` (a plain `moodle-generate-schemas` or
+`moodle-generate-schemas --namespace <name>`) never asks for it. A `path` saved by an older
+version is ignored, and dropped the next time `moodle-update-schemas` saves that entry.
 
 ---
 
@@ -149,7 +149,9 @@ generated declarations would not compile.
 
 ## `moodle-create-schemas`
 
-Adds one namespace to `package.json` and generates it right away.
+Adds one namespace to `package.json` and generates it right away. Only the newly created
+namespace is generated; other namespaces already declared in `package.json` are not
+regenerated or synchronized.
 
 ```bash
 # Official release, no files in the project
@@ -176,6 +178,9 @@ npx moodle-create-schemas --namespace localDev \
 - **The wizard** asks the same questions and can create several namespaces in one session.
 - **A local source** is generated from the path given (`--source.path` or the question),
   and saved without it.
+- **Isolated generation:** Only the schema being created is processed. Other existing
+  namespaces (such as remote repositories or other local paths) are never re-downloaded
+  or extracted.
 
 If generation fails (bad credentials, unreachable host, wrong path…), `package.json` is
 restored exactly as it was, and the directories created for the new namespace are
@@ -314,23 +319,30 @@ itself is never deleted.
 
 ## `moodle-generate-schemas`
 
-Generates the declarations of every namespace in `package.json`.
+Generates the declarations of namespaces declared in `package.json`.
 
 ```bash
 npx moodle-generate-schemas                          # all namespaces, using caches
-npx moodle-generate-schemas --namespace myRepo      # regenerate only myRepo
+npx moodle-generate-schemas --namespace myRepo      # only myRepo, using cache
 npx moodle-generate-schemas --namespace myRepo,localDev
-npx moodle-generate-schemas --force                  # regenerate everything
+npx moodle-generate-schemas --force --namespace myRepo  # regenerate only myRepo from scratch
+npx moodle-generate-schemas --force                  # regenerate everything from scratch
 ```
 
 | Option | Effect |
 | --- | --- |
-| `--namespace <name>` | Regenerate these namespaces from scratch; the rest are handled as usual (copied from their cache when it exists). Repeatable, or comma-separated. An unknown name fails with `ERR_NAMESPACE_NOT_FOUND`. |
-| `-f`, `--force` | Regenerate every namespace from scratch. |
+| `--namespace <name>` | Process only the specified namespace(s). If its `outDir` already contains schemas, it is synchronized without re-extracting; if missing, it is extracted. Other namespaces in `package.json` are completely ignored and not processed. Repeatable, or comma-separated. An unknown name fails with `ERR_NAMESPACE_NOT_FOUND`. |
+| `-f`, `--force` | Regenerate from scratch, bypassing cache. When combined with `--namespace`, forces only the specified namespace(s); alone, forces all namespaces. |
 | `--config <path>` | The `package.json` to use. |
 
-Without `--force` or `--namespace`, a namespace whose `outDir` already contains schemas is
-copied from there in well under a second, without downloading or extracting anything.
+When `--namespace <name>` is passed, only that namespace is processed. If you have
+configured other remote repositories or local directories in `package.json`, they will not be
+cloned, extracted, or touched.
+
+Like a full run, running with `--namespace <name>` (without `--force`) first checks if schemas
+already exist in its `outDir`. If they do, it synchronizes them into `@didactika/moodle-client`
+in less than half a second without downloading, cloning or asking for local paths. Add `--force`
+if you want to bypass the cache and extract that specific namespace again from its source.
 
 The bundled `webservice` namespace (see [Namespace names](#namespace-names)) is always
 available and never regenerated, so a project with no `"moodle-client"` entries generates
