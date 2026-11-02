@@ -25,10 +25,13 @@ import {
     isRepositorySource,
     isOfficialSource,
     BUNDLED_NAMESPACE,
-    BUNDLED_MOODLE_VERSION,
     MoodleSourceConfig,
 } from "./interfaces/config.interfaces";
 import { localPathRequiredError } from "./config/local-path";
+import { BarrelNamespace, buildMasterBarrel, bundledSourceDescription } from "./barrel";
+
+export { buildMasterBarrel, bundledSourceDescription };
+export type { BarrelNamespace };
 import {
     createGeneratorError,
     validateSchemaDeclarations,
@@ -69,12 +72,6 @@ function logInfo(message: string, silent?: boolean): void {
     if (!silent) {
         console.log(message);
     }
-}
-
-function toPascalCase(str: string): string {
-    return str
-        .replace(/[-_](\w)/g, (_, c) => c.toUpperCase())
-        .replace(/^\w/, (c) => c.toUpperCase());
 }
 
 /**
@@ -408,17 +405,6 @@ async function ensureDtsMtsSync(dir: string): Promise<void> {
     }
 }
 
-/** JSDoc source line of the bundled namespace, shared with scripts/bundle-schemas.ts. */
-export function bundledSourceDescription(): string {
-    return `bundled with @didactika/moodle-client (Moodle ${BUNDLED_MOODLE_VERSION})`;
-}
-
-export interface BarrelNamespace {
-    namespace: string;
-    /** Shown in the JSDoc of the namespace property */
-    source: string;
-}
-
 /**
  * JSDoc source line of a namespace in a barrel. outDir barrels are committed, so a local path
  * never appears: it is different on every machine.
@@ -434,36 +420,6 @@ function describeSource(entry: MoodleSchemaConfigEntry): string {
         return `moodle (v${entry.source.version})`;
     }
     return "unknown";
-}
-
-/**
- * Builds the source of a master barrel exposing the given namespaces on MoodleClient.
- */
-export function buildMasterBarrel(namespaces: BarrelNamespace[]): string {
-    const typeName = (ns: string) => `${toPascalCase(ns)}GeneratedServices`;
-    let dts = `/**\n * Master barrel for generated Moodle services namespaces.\n */\n`;
-    for (const { namespace } of namespaces) {
-        dts += `import type { GeneratedMoodleServices as ${typeName(namespace)} } from "./${namespace}/index";\n`;
-    }
-    dts += `\nexport type {\n`;
-    for (const { namespace } of namespaces) {
-        dts += `    ${typeName(namespace)},\n`;
-    }
-    dts += `};\n`;
-    dts += `\n// Namespace type barrels\n`;
-    for (const { namespace } of namespaces) {
-        dts += `export type * as ${namespace} from "./${namespace}/index";\n`;
-    }
-    dts += `\nexport interface GeneratedMoodleServices {\n`;
-    for (const { namespace, source } of namespaces) {
-        dts += `    /**\n     * Moodle web services namespace '${namespace}'.\n     * Source: ${source}\n     */\n`;
-        dts += `    ${namespace}: ${typeName(namespace)};\n`;
-    }
-    dts += `}\n\n`;
-    dts += `declare module "@didactika/moodle-client" {\n`;
-    dts += `    interface MoodleClient extends GeneratedMoodleServices {}\n`;
-    dts += `}\n`;
-    return dts;
 }
 
 /**

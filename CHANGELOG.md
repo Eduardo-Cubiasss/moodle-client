@@ -71,6 +71,15 @@ unchanged, and `call()` and `moodleClient()` go through the same path.
   generator needs: `@didactika/moodle-client-schemas`, `p-limit`, `simple-git` and
   `tar`. They are not loaded when you only make calls.
 
+### Fixed
+
+- **The shipped types compile in projects that check their dependencies.** The
+  build left `dist/schemas/index.d.ts` as a bare re-export with a
+  `declare module` block that used a name it did not declare, so any project
+  with `skipLibCheck: false` failed with `TS2304: Cannot find name
+  'GeneratedMoodleServices'` until it ran `moodle-generate-schemas`. The build
+  now writes the same barrel the CLI does, and a test type-checks it.
+
 ## [2.1.0] - 2026-08-11
 
 Nothing here breaks 2.0.0: `moodleClient()` keeps the same signature and

@@ -7,17 +7,21 @@ import {
     deleteSchemasFromOptions,
     validateDeleteOption,
 } from "../../../src/generator/ui/delete-schemas";
+import { runInProjectWithPackage } from "./helpers/package";
 
 describe("moodle-delete-schemas unit tests", () => {
     let tempDir: string;
     let pkgJsonPath: string;
+    let leaveProject: () => void;
 
     beforeEach(async () => {
         tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "moodle-delete-test-"));
         pkgJsonPath = path.join(tempDir, "package.json");
+        leaveProject = await runInProjectWithPackage(tempDir);
     });
 
     afterEach(async () => {
+        leaveProject();
         await fs.rm(tempDir, { recursive: true, force: true });
         vi.restoreAllMocks();
     });
