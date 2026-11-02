@@ -6,6 +6,7 @@ export default defineConfig({
         globals: true,
         environment: "node",
         include: ["tests/**/*.test.ts"],
+        setupFiles: ["tests/setup/repo-guard.ts"],
         alias: [
             { find: /.*src\/generator\/extractor(.*)/, replacement: path.resolve(import.meta.dirname, "./src/generator/extractor$1") },
             { find: /.*src\/generator\/php-adapter(.*)/, replacement: path.resolve(import.meta.dirname, "./src/generator/php-adapter$1") },

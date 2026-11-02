@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -17,6 +17,25 @@ async function copySchemasDir(src, dest) {
         } else if (entry.name.endsWith(".d.ts") || entry.name.endsWith(".d.mts")) {
             await fs.copyFile(srcPath, destPath);
         }
+    }
+}
+
+/**
+ * Writes dist/schemas/index.d.ts (and .d.mts) with the barrel of the bundled namespace, built by
+ * the same function the CLI uses on every generation.
+ *
+ * tsup's declaration bundling turns this file into a bare re-export
+ * (`export { G as GeneratedMoodleServices } from '../index-<hash>.js'`): GeneratedMoodleServices is
+ * then not declared in the file, so a `declare module` block appended to it fails with TS2304 in
+ * every project that type-checks its dependencies (skipLibCheck: false).
+ */
+async function writeSchemasBarrel(distSchemasDir) {
+    const { buildMasterBarrel, bundledSourceDescription, BUNDLED_NAMESPACE } = await import(
+        pathToFileURL(path.resolve(rootDir, "dist/generator/barrel.mjs")).href
+    );
+    const barrel = buildMasterBarrel([{ namespace: BUNDLED_NAMESPACE, source: bundledSourceDescription() }]);
+    for (const file of ["index.d.ts", "index.d.mts"]) {
+        await fs.writeFile(path.join(distSchemasDir, file), barrel, "utf-8");
     }
 }
 
@@ -47,26 +66,7 @@ async function main() {
         }
     }
 
-    const schemaDtsFiles = [
-        path.resolve(distSchemasDir, "index.d.ts"),
-        path.resolve(distSchemasDir, "index.d.mts"),
-    ];
-    for (const dtsFile of schemaDtsFiles) {
-        if (existsSync(dtsFile)) {
-            try {
-                const content = await fs.readFile(dtsFile, "utf-8");
-                if (!content.includes('declare module "@didactika/moodle-client"')) {
-                    await fs.appendFile(
-                        dtsFile,
-                        '\ndeclare module "@didactika/moodle-client" {\n    interface MoodleClient extends GeneratedMoodleServices {}\n}\n',
-                        "utf-8"
-                    );
-                }
-            } catch {
-                // Ignore
-            }
-        }
-    }
+    await writeSchemasBarrel(distSchemasDir);
     console.log("[postbuild] Schemas copied to dist/schemas successfully.");
 }
 

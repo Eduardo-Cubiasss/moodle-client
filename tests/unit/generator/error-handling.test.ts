@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi, onTestFinished } from "vitest";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
@@ -18,6 +18,7 @@ import { cloneRepository } from "../../../src/generator/downloader/git-repositor
 import { promptDeleteSchemas } from "../../../src/generator/ui/delete-schemas";
 import { verifyOutDirWritable } from "../../../src/generator/runner";
 import { validateLocalPathInput } from "../../../src/generator/ui/create-schemas";
+import { runInProjectWithPackage } from "./helpers/package";
 
 describe("Usability Error Handling Suite (.idea/errors.md)", () => {
     let tempDir: string;
@@ -239,6 +240,8 @@ describe("Usability Error Handling Suite (.idea/errors.md)", () => {
 
     describe("4. Outdir existe pero esta vacio y configuraciones existen", () => {
         it("should cleanly delete namespace and clean up empty directory in delete-schemas", async () => {
+            const leaveProject = await runInProjectWithPackage(tempDir);
+            onTestFinished(leaveProject);
             const emptyOutDir = path.join(tempDir, "empty-schemas");
             await fs.mkdir(emptyOutDir, { recursive: true });
 
