@@ -28,7 +28,14 @@ function option(name: string): string | undefined {
 }
 
 function expandHome(p: string): string {
-    return p.startsWith("~/") ? path.join(os.homedir(), p.slice(2)) : path.resolve(p);
+    const trimmed = p.trim();
+    if (trimmed === "~") {
+        return os.homedir();
+    }
+    if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
+        return path.join(os.homedir(), trimmed.slice(2));
+    }
+    return path.resolve(trimmed);
 }
 
 /**

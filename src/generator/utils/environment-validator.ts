@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import { existsSync } from "fs";
 import path from "path";
 import child_process from "child_process";
 import { MoodleGeneratorError } from "@didactika/moodle-client-schemas";
@@ -187,7 +188,10 @@ export async function verifyLocalMoodlePath(moodlePath: string, namespace?: stri
         }
     }
 
-    const versionPhp = path.join(moodlePath, "version.php");
+    const hasPublicVersion = existsSync(path.join(moodlePath, "public", "version.php"));
+    const versionPhp = hasPublicVersion && !existsSync(path.join(moodlePath, "version.php"))
+        ? path.join(moodlePath, "public", "version.php")
+        : path.join(moodlePath, "version.php");
     try {
         await fs.access(versionPhp, fs.constants.R_OK);
     } catch (err: unknown) {

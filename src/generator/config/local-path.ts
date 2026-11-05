@@ -1,7 +1,5 @@
-import path from "path";
-import os from "os";
 import { createGeneratorError } from "./config-manager";
-import { validateLocalPathInput } from "./input-validators";
+import { resolveLocalPathString, validateLocalPathInput } from "./input-validators";
 
 /**
  * The path of a local Moodle checkout differs on every machine, so it is never saved. When a
@@ -11,11 +9,10 @@ import { validateLocalPathInput } from "./input-validators";
  */
 
 /**
- * Expands `~/` and resolves a relative path against the current directory.
+ * Expands `~/` or `~\` and resolves a relative path against baseDir (defaulting to process.cwd()).
  */
-export function absoluteLocalPath(rawPath: string): string {
-    const trimmed = rawPath.trim();
-    return trimmed.startsWith("~/") ? path.join(os.homedir(), trimmed.slice(2)) : path.resolve(process.cwd(), trimmed);
+export function absoluteLocalPath(rawPath: string, baseDir: string = process.cwd()): string {
+    return resolveLocalPathString(rawPath, baseDir);
 }
 
 export interface ResolveLocalPathOptions {

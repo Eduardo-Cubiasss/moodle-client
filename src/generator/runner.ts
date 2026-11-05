@@ -27,7 +27,7 @@ import {
     BUNDLED_NAMESPACE,
     MoodleSourceConfig,
 } from "./interfaces/config.interfaces";
-import { localPathRequiredError } from "./config/local-path";
+import { localPathRequiredError, absoluteLocalPath } from "./config/local-path";
 import { BarrelNamespace, buildMasterBarrel, bundledSourceDescription } from "./barrel";
 
 export { buildMasterBarrel, bundledSourceDescription };
@@ -756,9 +756,7 @@ export async function runGenerator(
                 // The path of a local source is never saved: the CLI resolves it before the run.
                 throw localPathRequiredError(entry.namespace);
             }
-            targetMoodlePath = rawPath.startsWith("~/")
-                ? path.join(os.homedir(), rawPath.slice(2))
-                : path.resolve(configDir, rawPath);
+            targetMoodlePath = absoluteLocalPath(rawPath, configDir);
             shouldCleanup = false;
             await verifyLocalMoodlePath(targetMoodlePath, entry.namespace);
         } else if (isRepositorySource(entry.source)) {
@@ -819,7 +817,10 @@ export async function runGenerator(
                         try {
                             await fs.access(targetMoodlePath, fs.constants.R_OK | (fs.constants.X_OK ?? 0));
                             await fs.readdir(targetMoodlePath);
-                            const versionFile = path.join(targetMoodlePath, "version.php");
+                            const hasPublicVersion = existsSync(path.join(targetMoodlePath, "public", "version.php"));
+                            const versionFile = hasPublicVersion && !existsSync(path.join(targetMoodlePath, "version.php"))
+                                ? path.join(targetMoodlePath, "public", "version.php")
+                                : path.join(targetMoodlePath, "version.php");
                             await fs.access(versionFile, fs.constants.R_OK);
                         } catch (permErr: unknown) {
                             const pErr = permErr as NodeJS.ErrnoException;

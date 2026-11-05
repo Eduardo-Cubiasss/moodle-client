@@ -113,14 +113,28 @@ export function validateMoodleVersionInput(version: string): string {
     return normalizeMoodleVersion(trimmed);
 }
 
+export function expandHomePath(rawPath: string): string {
+    const trimmed = rawPath.trim();
+    if (trimmed === "~") {
+        return os.homedir();
+    }
+    if (trimmed.startsWith("~/") || trimmed.startsWith("~\\")) {
+        return path.join(os.homedir(), trimmed.slice(2));
+    }
+    return trimmed;
+}
+
+export function resolveLocalPathString(rawPath: string, baseDir: string = process.cwd()): string {
+    const expanded = expandHomePath(rawPath);
+    return path.isAbsolute(expanded) ? expanded : path.resolve(baseDir, expanded);
+}
+
 export function validateLocalPathInput(rawPath: string): string {
     const trimmed = rawPath.trim();
     if (!trimmed) {
         throw new Error("Path cannot be empty.");
     }
-    const resolved = trimmed.startsWith("~/")
-        ? path.join(os.homedir(), trimmed.slice(2))
-        : path.resolve(process.cwd(), trimmed);
+    const resolved = resolveLocalPathString(trimmed);
     if (!existsSync(resolved)) {
         throw new Error(`Directory '${resolved}' does not exist.`);
     }

@@ -57,7 +57,7 @@ a namespace without schemas in its `outDir`, `moodle-create-schemas`, and
 
 ```text
 Please enter the path to your Moodle directory for 'localDev' (it is not saved)
-~ Example: ~/projects/moodle ~
+~ Example: /var/www/html/moodle ~
 Path: _
 ```
 

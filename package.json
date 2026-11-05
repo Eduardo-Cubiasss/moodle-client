@@ -39,7 +39,7 @@
     "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "moodle:generate-webservices": "tsx src/generator/cli.ts",
+    "moodle-generate-schemas": "tsx src/generator/cli.ts",
     "moodle-create-schemas": "tsx src/generator/create-cli.ts",
     "moodle-delete-schemas": "tsx src/generator/delete-cli.ts",
     "moodle-update-schemas": "tsx src/generator/update-cli.ts",
