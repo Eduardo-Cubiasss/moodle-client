@@ -1,6 +1,6 @@
 # @didactika/moodle-client
 
-Strongly-typed TypeScript client for Moodle web services with full IDE autocompletion and zero runtime dependencies, built on native `fetch`.
+Strongly-typed TypeScript client for Moodle web services with full IDE autocompletion, built on native `fetch`.
 
 [![npm](https://img.shields.io/npm/v/@didactika/moodle-client)](https://www.npmjs.com/package/@didactika/moodle-client)
 [![node](https://img.shields.io/node/v/@didactika/moodle-client)](https://nodejs.org)
@@ -15,7 +15,7 @@ Strongly-typed TypeScript client for Moodle web services with full IDE autocompl
 - 🧩 **Multi-Namespace Architecture**: Generate and use multiple Moodle versions (e.g. Moodle 4.4, 4.5) or local plugin codebases side-by-side on the same client instance.
 - 📦 **Automatic Parameter Serialization**: Deeply nested JavaScript objects and arrays are automatically flattened into the `parent[child][index]` format Moodle's REST endpoint requires.
 - 🛡️ **Semantic Error Handling**: Converts Moodle's JSON body errors (which return HTTP 200 OK) into strongly-typed Error classes (`InvalidToken`, `AccessException`, `InvalidParameter`, `InvalidRecord`, `MoodleException`, etc.).
-- 🪶 **Zero Runtime Dependencies**: Built entirely on native Node standard library (`fetch`, `URLSearchParams`). Ships dual CommonJS, ESM, and TypeScript declarations.
+- 🪶 **Zero Client Runtime Overhead**: Web service calls rely purely on native Node standard library (`fetch`, `URLSearchParams`). Schema generator dependencies (`tar`, `simple-git`, `p-limit`, `@didactika/moodle-client-schemas`) are only loaded when running CLI tooling. Ships dual CommonJS, ESM, and TypeScript declarations.
 
 ---
 
@@ -353,7 +353,7 @@ Four commands manage the schema namespaces. `create`, `update` and `delete` star
 | `npx moodle-create-schemas` | Adds a namespace to `package.json` and generates it. Rolls back `package.json` if generation fails. |
 | `npx moodle-update-schemas` | Changes a namespace and saves it; then synchronizes (regenerates) only that namespace when you confirm or pass `--sync`, which is recommended. Restores the previous schemas if that fails. |
 | `npx moodle-delete-schemas` | Removes a namespace and its generated files, keeping files you wrote. |
-| `npx moodle-generate-schemas` | Generates every namespace; `--namespace <name>` regenerates just one, `--force` all of them. |
+| `npx moodle-generate-schemas` | Generates every namespace; `--namespace <name>` processes only targeted namespaces, `--force` forces regeneration from scratch. |
 
 ```bash
 npx moodle-create-schemas --namespace myRepo \
@@ -362,6 +362,7 @@ npx moodle-create-schemas --namespace myRepo \
 
 npx moodle-update-schemas --namespace myRepo --source.branch release-2 --sync
 npx moodle-generate-schemas --namespace myRepo
+npx moodle-generate-schemas --force --namespace myRepo  # force regenerate only myRepo from scratch
 npx moodle-delete-schemas --namespace myRepo
 ```
 
@@ -473,7 +474,7 @@ The generator emits clear, actionable error blocks:
 | `ERR_SYNC_FAILED` | Schema Synchronization Failed | `moodle-update-schemas` saved the configuration but regeneration failed; the previous schemas were restored. Fix the cause and run `npx moodle-generate-schemas --namespace <name>`. |
 | `ERR_MOODLE_VERSION_UNSUPPORTED` | Unsupported Moodle Version | Configured Moodle version is lower than 2.0. Set `"version"` to a supported version (e.g. `"4.5"`). |
 | `ERR_PHP_NOT_FOUND` | PHP CLI Not Found | `php` binary was not found in system `PATH`. Install PHP 8.0 or higher. |
-| `ERR_MOODLE_PATH_NOT_ROOT` | Invalid Moodle Root Directory | The local path given has no `version.php`. Point directly to the Moodle installation root. |
+| `ERR_MOODLE_PATH_NOT_ROOT` | Invalid Moodle Root Directory | The local path given has no `version.php` or `public/version.php`. Point directly to the Moodle installation root. |
 | `ERR_NO_SERVICES_FOUND` | No Web Services Found | The codebase contains no `db/services.php` files. Verify that the Moodle installation is complete. |
 | `ERR_SERVICE_NOT_FOUND` | Web Service Not Found | A pattern in `webservices` array did not match any declared web service. |
 
@@ -483,6 +484,8 @@ The generator emits clear, actionable error blocks:
 
 - [Getting Started](docs/getting-started.md) — Step-by-step setup on Moodle side, installation, and first call.
 - [API Reference](docs/api-reference.md) — Comprehensive documentation of classes, methods, and TypeScript interfaces.
+- [CLI Reference](docs/cli.md) — Schema generator commands, options, local paths, and Docker usage.
+- [Web Services Guide](docs/webservices-guide.md) — Comprehensive guide on namespaces, schema generation, and code patterns.
 - [Error Handling](docs/errors.md) — Deep dive into Moodle error codes, HTTP statuses, and debugging strategies.
 - [Examples](examples/) — Runnable scripts demonstrating common usage patterns.
 

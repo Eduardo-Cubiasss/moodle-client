@@ -98,12 +98,14 @@ npx moodle-update-schemas --namespace customRepo --source.branch release-2 --syn
 Reads configurations from `package.json`, extracts PHP service signatures, and compiles TypeScript `.d.ts` declaration files:
 
 ```bash
-npx moodle-generate-schemas                          # all namespaces
-npx moodle-generate-schemas --namespace customRepo   # regenerate one
-npx moodle-generate-schemas --force                  # regenerate all from scratch
+npx moodle-generate-schemas                                # all namespaces
+npx moodle-generate-schemas --namespace customRepo         # regenerate only customRepo using cache
+npx moodle-generate-schemas --force --namespace customRepo # force regenerate only customRepo from scratch
+npx moodle-generate-schemas --force                        # regenerate all from scratch
 ```
 
 * **Smart Cache Skip:** When schemas already exist in `outDir`, generation is skipped and synchronized in ~0.2 seconds.
+* **Isolated Generation:** When targeted with `--namespace <name>`, only the specified namespace is processed; other namespaces declared in `package.json` are completely skipped and not downloaded or extracted.
 * **Concurrency and Parallelism:** Processes up to 2 schemas concurrently (`p-limit(2)`) and extracts up to 8 PHP webservices in parallel per schema (`concurrency: 8`), with concurrent Git submodule synchronization (`p-limit(4)`).
 
 ### 2.4 Delete Schema Configurations (`moodle-delete-schemas`)
@@ -161,7 +163,7 @@ Configured schema sources are saved in the `"moodle-client"` array of your `pack
 | `namespace` | `string` | Unique identifier on client instance (`moodle.<namespace>`); a valid identifier such as `moodle50`, not `moodle5.0`. `webservice` is reserved for the bundled namespace. |
 | `source.type` | `string` | Exactly one of `"moodle-official"`, `"moodle-local"` or `"moodle-repository"`. |
 | `source.version` | `string` | Moodle version string (required for `"moodle-official"`). |
-| `source.path` | | Not saved. The directory of a `"moodle-local"` source is given each time it is generated: `--source.path` or a prompt. See [Local paths](cli.md#local-paths). |
+| `source.path` | | Not saved. The directory (containing `version.php` or `public/version.php`) of a `"moodle-local"` source is given each time it is generated: `--source.path` or a prompt. See [Local paths](cli.md#local-paths). |
 | `source.url` | `string` | Git clone URL (required for `"moodle-repository"`). |
 | `source.branch` | `string` | Git branch or tag (optional for `"moodle-repository"`, default: `"main"`). |
 | `webservices` | `string[]` | Function matching patterns (e.g. `["*"]`). |

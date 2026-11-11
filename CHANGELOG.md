@@ -30,33 +30,38 @@ unchanged, and `call()` and `moodleClient()` go through the same path.
   ```
 
   The `webservice` namespace is bundled: the 700+ functions of Moodle 4.5 work out
-  of the box, with nothing to generate. It is part of the library, not of your
-  configuration: it never appears in `package.json`, and the CLIs cannot update,
-  regenerate or delete it.
+  of the box, with nothing to generate. Shipped types include complete declaration
+  barrels (`dist/schemas/index.d.ts`) that compile cleanly even in projects with
+  `skipLibCheck: false`. It is part of the library, not of your configuration:
+  it never appears in `package.json`, and the CLIs cannot update, regenerate or delete it.
 - **Schema generator CLI** for other Moodle versions, forks and local plugins.
   Each namespace is declared under `"moodle-client"` in `package.json`, from one
   of three sources:
   - `moodle-official`: a release, by version;
-  - `moodle-repository`: a Git repository and branch;
-  - `moodle-local`: a directory. Its path is never saved in `package.json`, since it
-    differs on every machine: it is given each time the namespace is generated, with
-    `--source.path` or a prompt.
+  - `moodle-repository`: a Git repository and branch, with non-interactive authentication;
+  - `moodle-local`: a directory. Its path is strictly ephemeral and never saved in
+    `package.json`. Includes automatic candidate discovery in workspace and sibling
+    folders, support for both root `version.php` and `public/version.php`, platform-specific
+    path examples, and cross-platform tilde expansion (`~`, `~/`, `~\`).
 
   | Command | |
   | --- | --- |
-  | `moodle-create-schemas` | adds a namespace and generates it |
+  | `moodle-create-schemas` | adds a namespace and generates only that one |
   | `moodle-update-schemas` | changes a namespace, then synchronizes it (`--sync`) |
   | `moodle-delete-schemas` | removes a namespace and its generated files |
-  | `moodle-generate-schemas` | generates every namespace, or one with `--namespace` |
+  | `moodle-generate-schemas` | generates every namespace, or targeted ones with `--namespace` |
 
   - **Two modes.** `create`, `update` and `delete` ask for each value as a wizard,
     or run in one line, for scripts and CI, with options named after the config
     keys (`--namespace`, `--source.type`, `--source.url`, `--webservices`,
     `--outDir`…).
-  - **Rollback.** A failed creation restores `package.json`; a failed
-    synchronization restores the previous schemas.
-  - **Your files are kept.** Regenerating or deleting only touches the files the
-    generator wrote.
+  - **Targeting and isolated execution.** `moodle-generate-schemas --namespace <name>`
+    processes only the specified namespace(s), leaving other configured entries untouched.
+    Adding `-f` / `--force` (`--force --namespace <name>`) forces re-extraction from
+    scratch for that namespace alone.
+  - **Rollback and cleanup safety.** A failed creation restores `package.json`; a failed
+    synchronization restores previous schemas. Regenerating or deleting only touches files
+    the generator wrote.
 
   The generator needs PHP 8.0+ on the `PATH`. Calling Moodle does not.
 - **Diagnostics.** Generator failures print a title, the details and the action to
@@ -73,12 +78,9 @@ unchanged, and `call()` and `moodleClient()` go through the same path.
 
 ### Fixed
 
-- **The shipped types compile in projects that check their dependencies.** The
-  build left `dist/schemas/index.d.ts` as a bare re-export with a
-  `declare module` block that used a name it did not declare, so any project
-  with `skipLibCheck: false` failed with `TS2304: Cannot find name
-  'GeneratedMoodleServices'` until it ran `moodle-generate-schemas`. The build
-  now writes the same barrel the CLI does, and a test type-checks it.
+- **Debug information in error handling.** `BadRequestError` now receives Moodle's
+  `debuginfo` when present, and error messages across all error classes append it
+  to provide immediate context in logs and stack traces.
 
 ## [2.1.0] - 2026-08-11
 

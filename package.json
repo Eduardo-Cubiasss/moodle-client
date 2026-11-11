@@ -1,6 +1,6 @@
 {
   "name": "@didactika/moodle-client",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Typed Moodle web service client built on native fetch, featuring an integrated schema generator CLI",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -82,7 +82,7 @@
   },
   "homepage": "https://github.com/didactika/moodle-client#readme",
   "dependencies": {
-    "@didactika/moodle-client-schemas": "^0.1.0",
+    "@didactika/moodle-client-schemas": "^1.0.0",
     "p-limit": "^7.3.3",
     "simple-git": "^4.0.2",
     "tar": "^7.5.22"

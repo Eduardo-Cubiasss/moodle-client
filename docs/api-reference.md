@@ -337,7 +337,7 @@ interface MoodleRepositorySource {
 
 interface MoodleLocalSource {
   type: "moodle-local";
-  path?: string;   // Moodle root containing version.php. Never saved: given when generating
+  path?: string;   // Moodle root containing version.php or public/version.php. Never saved: given when generating
 }
 ```
 
@@ -354,7 +354,7 @@ Four CLI executables manage the custom schema lifecycle. `create`, `update` and 
 | `npx moodle-create-schemas` | Add a namespace and generate it (rollback on failure). |
 | `npx moodle-update-schemas` | Change a namespace, save it, then synchronize it (`--sync`, recommended). |
 | `npx moodle-delete-schemas` | Remove a namespace and its generated files (`--purge` also removes your files there). |
-| `npx moodle-generate-schemas` | Generate all namespaces; `--namespace <name>` regenerates one, `--force` all. |
+| `npx moodle-generate-schemas` | Generate all namespaces; `--namespace <name>` processes only targeted namespaces, `--force` forces regeneration from scratch. |
 
 Every option, with examples: [CLI Reference](cli.md).
 

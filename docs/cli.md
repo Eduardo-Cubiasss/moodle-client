@@ -61,6 +61,18 @@ Please enter the path to your Moodle directory for 'localDev' (it is not saved)
 Path: _
 ```
 
+The interactive prompt automatically searches for a candidate Moodle codebase in your
+workspace, subdirectories, and sibling directories. If a valid Moodle directory is
+detected, its path is suggested in the prompt. If not found, a platform-specific fallback
+example is shown:
+- **Linux:** `/var/www/html/moodle`
+- **Windows:** `C:\xampp\htdocs\moodle`
+- **macOS:** `/Applications/MAMP/htdocs/moodle`
+
+Both traditional Moodle installations containing `version.php` at the root and modern or
+composer layouts containing `public/version.php` are recognized. Home directory paths (`~`,
+`~/…`, and `~\…` on Windows) are automatically expanded.
+
 Without a terminal to ask on (CI, a script, `docker exec` without `-t`), a missing path fails
 with `ERR_LOCAL_PATH_REQUIRED` instead of waiting for an answer. The path is never read from
 an environment variable or a `.env` file.
@@ -83,7 +95,7 @@ version is ignored, and dropped the next time `moodle-update-schemas` saves that
 | `--source.version <x.y>` | `source.version` | `moodle-official` only. `4.5.2` is stored as `4.5`. Must be 2.0 or later. |
 | `--source.url <url>` | `source.url` | `moodle-repository` only. `http://`, `https://`, `git@` or `ssh://`. |
 | `--source.branch <name>` | `source.branch` | `moodle-repository` only. Branch or tag; defaults to `main`. |
-| `--source.path <dir>` | | `moodle-local` only. Must exist. `~/` is expanded. **Never saved**: see [Local paths](#local-paths). |
+| `--source.path <dir>` | | `moodle-local` only. Must exist with `version.php` or `public/version.php`. `~`, `~/` and `~\` are expanded. **Never saved**: see [Local paths](#local-paths). |
 | `--webservices <list>` | `webservices` | Comma-separated names or `prefix_*` patterns. Defaults to `*`. Quote it in the shell: `"core_*,local_*"`. |
 | `--outDir <dir>` | `outDir` | Required for `moodle-repository` and `moodle-local`. |
 | `--config <path>` | | The `package.json` to read and write; defaults to `./package.json`. |

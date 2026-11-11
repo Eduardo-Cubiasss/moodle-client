@@ -6,10 +6,10 @@
 npm install @didactika/moodle-client
 ```
 
-Node 20 or newer. The package has no runtime dependencies — it is built on
-`fetch` and `URLSearchParams` from the standard library — and ships
-CommonJS, ESM and type declarations, so `require` and `import` both work
-with no configuration.
+Node 20 or newer. Calling web services has zero runtime overhead — it is built on
+`fetch` and `URLSearchParams` from the standard library (generator CLI dependencies
+are only loaded when generating code) — and ships CommonJS, ESM and type declarations,
+so `require` and `import` both work with no configuration.
 
 ## Preparing the Moodle side
 
@@ -147,6 +147,7 @@ const response = await moodleClient({
 ## Where to go next
 
 - [Web Services Guide](webservices-guide.md) — complete guide to generating and consuming typed web services.
+- [CLI Reference](cli.md) — schema generator commands, options, and Docker guide.
 - [API reference](api-reference.md) — every class, method and type.
 - [Errors](errors.md) — what gets thrown and how to tell the cases apart.
 - [examples/](../examples) — runnable scripts for the usual shapes.

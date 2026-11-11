@@ -164,7 +164,7 @@ If initial schema generation fails during the interactive wizard (e.g. invalid c
 | `ERR_SYNC_FAILED` | Schema Synchronization Failed | Update | `moodle-update-schemas --sync` saved the configuration but regeneration failed; previous schemas were restored. | Fix the cause and run `npx moodle-generate-schemas --namespace <name>`. |
 | `ERR_MOODLE_VERSION_UNSUPPORTED` | Unsupported Moodle Version | Config | Moodle version is lower than minimum 2.0. | Set `source.version` to a supported Moodle release (>= 2.0, e.g. "4.5"). |
 | `ERR_MOODLE_PATH_NOT_FOUND` | Moodle Path Not Found | Config / Path | The local path given for a `moodle-local` namespace does not exist on disk. | Verify directory exists on disk. |
-| `ERR_MOODLE_PATH_NOT_ROOT` | Invalid Moodle Root Directory | Config / Path | Directory exists but does not contain `version.php`. | Give the Moodle root directory, the one containing `version.php`. |
+| `ERR_MOODLE_PATH_NOT_ROOT` | Invalid Moodle Root Directory | Config / Path | Directory exists but does not contain `version.php` or `public/version.php`. | Give the Moodle root directory containing `version.php` (or `public/version.php`). |
 | `ERR_NO_SERVICES_FOUND` | No Web Services Found | Extraction | Moodle installation contains no `db/services.php` files. | Verify Moodle installation is complete with standard plugins. |
 | `ERR_SERVICE_NOT_FOUND` | Web Service Not Found | Extraction | Configured function pattern matches no services. | Verify service names or wildcards (`*`) in `webservices` array. |
 | `ERR_CLASS_NOT_FOUND` | Web Service Class Not Found | Extraction | External PHP class not found or not autoloadable. | Verify plugin containing the external class is installed and autoloadable. |
